@@ -1,0 +1,64 @@
+Requirements:
+The things that we have created now should come under the Admin's page.
+Now I planned on adding two type of users:
+1. Admin
+2. Mould Design Engineer
+
+the admin should use all the options in the app currently - i.e. an admin can do all the options Quote Generator/ Projects/ Archive tabs.
+An additional task button named "Assign Project" - this should allow the Admin to choose from the list of Approved Projects (Only name of the Project(i.e. the quote name) should be visible) to create a token to assign a Designer for the project. The admin can also assign a new token with a custom project that isn't listed in the list of Approved Projects to the Mould Design Engineer. A project name should be given by the admin while assigning any token - Only the project's name should be visible to the MDE. 
+
+There should be another button inside the Assign Project section named "View files:" It should show the project name and the files related to that project that is uploaded by the MDE.
+
+
+the Mould Design Engineer - (A new Dash board Will be created):
+
+The MDE's (Mould Design Engineer) DashBoard should show the following:-
+1. The name of the MDE (Get and Store during Login)  
+2. A card based dashboard showing the number of projects assigned and Number of projects completed.
+3. Two folders - Assigned and Completed
+	the assigned folder should show the Work that is newly assigned/Pending It should allow the MDE to upload N number of files of N sizes
+	Completed folder should contain the details of the work that is previously completed.
+The assigned folder tab under the specific project name should have a file manager tab - that shows the file/folder present in the project folder that is uploaded by the MDE and an Upload file/folder space - it should allow uploading of files either by choosing the required files from the device or by simply dragging and dropping it
+
+
+I want to build this application as a Cross-Platform Application with Web Access to use it either on mobile app/ in a web browser of a Desktop/PC to maximize it's usage
+
+
+The files that are uploaded by the MDE should be visible to the Admin.
+
+for now I want to use python and Supabase for the backend workflows, User authentication and login, File uploads and managing
+
+
+
+How can we do this tell all your needs to complete this.
+
+
+1. I have placed my project's supabase URL and Anon key in the .env file 
+2.can you confirm me that which will be better to use either pyhton/dart to build the backend of the app, that will be the best when I commercialize this app
+3. I want the MDE to upload files such as .x_t / .step / .prt etc.. the type of files extension that will be used in multiple 3D designing software along with standard file formats such as .doc / .docx / .pdf / .jpg / .png / .dwg etc...
+4. Yes, and while building the app for both web and mobile applications organise all the elements in the app according to the screen.
+5.  Yes now the app screen should go directly to a login page - and when logging in after each use of the app - it should remember the user.
+
+**NOTE: THE SUPABASE PROJECT THAT I HAVE CREATED NOW DOESNOT HAS ANY TABLES/FIELDS IT"S EMPTY**
+**DO NO ADD SIGNUP OPTION IN THE LOGIN PAGE - THE LOGIN CREDENTIALS WILL BE DIRECTLY GIVEN INSIDE THE SUPA BASE**
+**FOR NOW SAMPLE USER LOGIN DETAILS ARE AS FOLLOWS - INSERT THEM INTO THE SUPABASE**
+**ADMIN NAME : MADAN
+MAIL: madhan.780890@gmail.com
+PASS: !madanM2005**
+**MDE NAME : Karthi
+MAIL: karthi.780890@gmail.com
+PASS: !karthiK2005**
+
+
+I cannot save a created quote
+The auto naming logic for the code is not implemented - the name field is empty
+When I tried saving the quote by typing the name manually it didn't work either 
+All the other pages were always loading 
+I want you to place the view files option inside the assign projects 
+
+
+
+now next upgrade - when using the same admin in id in different devices it shows variable quotes created / generated according to the device
+now the primary goal is to move all the files and folder storage into the supabase DB so every time logined in different devices with same id shows same content
+
+How to do it

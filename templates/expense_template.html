@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Expense Sheet</title>
+
+<style>
+    body {
+        font-family: "Times New Roman", serif;
+        margin: 0;
+        padding: 0;
+        background: #f5f5f5;
+    }
+    td {
+        word-wrap: break-word;
+        white-space: normal;
+    }
+    .container {
+        width: 95%;
+        max-width: 1000px;
+        min-height: auto;
+        margin: 20px auto;
+        background: white;
+        padding: 20px;
+        border: 1px solid #ccc;
+    }
+
+    /* HEADER */
+    .header {
+        text-align: center;
+        border-bottom: 4px solid red;
+        padding-bottom: 10px;
+    }
+
+    .header h1 {
+        color: red;
+        margin: 0;
+        font-size: 28px;
+    }
+
+    .header p {
+        margin: 3px;
+        font-size: 14px;
+    }
+
+    /* TOP SECTION */
+    .top-section {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .left-info {
+        font-size: 15px;
+        line-height: 1.8;
+    }
+
+    .right-box {
+        border: 1px solid #000;
+        padding: 10px 20px;
+        font-size: 15px;
+        line-height: 1.8;
+        background: #f9f9f9;
+    }
+
+    /* TABLE */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 30px;
+    }
+
+    th, td {
+        border: 1px solid #000;
+        padding: 8px;
+        text-align: center;
+        font-size: 14px;
+    }
+
+    th {
+        background-color: #7f97bd;
+        color: black;
+    }
+
+    th.amount {
+        background-color: #f4cc63;
+    }
+
+    .total-row td {
+        text-align: right;
+        font-weight: bold;
+    }
+
+    /* FOOTER */
+    .footer {
+        margin-top: 60px;
+        margin-left: auto;
+        text-align: center;
+        width: 250px;
+        font-size: 15px;
+        
+    }
+
+    .footer strong {
+        font-weight: bold;
+    }
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- HEADER -->
+    <div class="header">
+        <h1>SVJM MOULD & SOLUTIONS</h1>
+        <p>No. 27/19 Muhurthamalingam Street,</p>
+        <p>Ekattuthangal, Chennai - 600032</p>
+        <p>E-Mail: sekhar_raman@yahoo.com | Mobile: 9600675380</p>
+        <p>GSTON: 33EFMPS7708C1Z9</p>
+    </div>
+
+    <!-- TOP INFO -->
+    <div class="top-section">
+
+        <!-- LEFT -->
+        <div class="left-info">
+            <p><strong>Company name:</strong> {{company_name}}</p>
+            <p><strong>Project ID:</strong> {{project_id}}</p>
+            <p><strong>Quote date:</strong> {{quote_date}}</p>
+        </div>
+
+        <!-- RIGHT BOX -->
+        <div class="right-box">
+            <p><strong>Budget :</strong> ₹{{budget}}</p>
+            <p><strong>Spent :</strong> ₹{{spent}}</p>
+            <p><strong>Balance :</strong> ₹{{balance}}</p>
+        </div>
+
+    </div>
+
+    <!-- TABLE -->
+    <table>
+        <thead>
+            <tr>
+                <th>S.no</th>
+                <th>Date</th>
+                <th>Description</th>
+                <th class="amount">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Dynamic rows -->
+            {% for item in expenses %}
+<tr>
+    <td>{{ loop.index }}</td>
+    <td>{{ item.date }}</td>
+    <td>{{ item.description }}</td>
+    <td>₹{{ item.amount }}</td>
+</tr>
+{% endfor %}
+
+            <!-- Add more rows dynamically -->
+
+            <tr class="total-row">
+                <td colspan="3">Total:</td>
+                <td>₹{{total}}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- FOOTER -->
+    <div class="footer">
+        <p>Payments</p>
+        <p><strong>By SVJMMOULD & SOLUTIONS</strong></p>
+        <p>{{payment_date}}</p>
+    </div>
+
+</div>
+
+</body>
+</html>

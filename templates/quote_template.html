@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Quotation</title>
+
+<style>
+
+@page{
+    size:A4;
+    margin:15mm;
+}
+
+body{
+    font-family:"Times New Roman", serif;
+    margin:0;
+    color:#000;
+}
+
+/* BACKGROUND WATERMARK */
+
+.watermark{
+    position:fixed;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    z-index:-1;
+}
+
+/* HEADER */
+
+.header{
+    border-bottom:4px solid #c40000;
+    padding-bottom:8px;
+    width:100%;
+    margin-left:-15mm;
+    margin-right:-15mm;
+    padding-left:15mm;
+    padding-right:15mm;
+    }
+
+.header-table{
+    width:100%;
+}
+
+.logo{
+    width:105px;
+}
+
+.company-info{
+    text-align:center;
+}
+
+.company-name{
+    font-size:29px;
+    color:#c40000;
+    font-weight:bold;
+}
+
+.company-details{
+    font-size:14px;
+    color:#2A42B8;
+    font-weight:bold;
+    line-height:1.4;
+}
+
+.gst{
+    font-size:14px;
+    margin-top:3px;
+}
+
+/* CUSTOMER SECTION */
+
+.section{
+    margin-top:18px;
+}
+
+.to-table{
+    width:100%;
+}
+
+.to-left{
+    width:60%;
+}
+
+.to-right{
+    width:40%;
+    text-align:right;
+}
+
+/* SUBJECT */
+
+.subject{
+    margin-top:14px;
+    font-weight:bold;
+}
+
+/* INTRO */
+
+.intro{
+    margin-top:10px;
+    line-height:1.4;
+}
+
+/* TABLE */
+
+.quote-table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:15px;
+}
+
+.quote-table th{
+    border:1px solid #000;
+    padding:6px;
+    background:#d9d9d9;
+    text-align:center;
+}
+
+.quote-table td{
+    border:1px solid #000;
+    padding:6px;
+}
+
+.quote-table td:nth-child(1){
+    text-align:center;
+    width:8%;
+}
+
+.quote-table td:nth-child(3),
+.quote-table td:nth-child(4){
+    text-align:center;
+}
+
+/* FOOTER TEXT */
+
+.footer-text{
+    margin-top:12px;
+}
+
+/* TERMS */
+
+.terms{
+    margin-top:15px;
+    page-break-inside:avoid;
+}
+
+.terms-title{
+    font-weight:bold;
+    text-decoration:underline;
+}
+
+/* BANK */
+
+.bank-box{
+    border:1px solid #000;
+    padding:8px;
+    width:260px;
+    margin-top:15px;
+}
+
+/* SIGNATURE */
+
+.signature{
+    margin-top:20px;
+    text-align:right;
+    page-break-inside:avoid;
+}
+
+.signature-inner{
+    display:inline-block;
+    text-align:center;
+}
+
+.sign-img{
+    width:110px;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- BACKGROUND IMAGE (ORIGINAL SIZE, NO STRETCH) -->
+<img src="{{ watermark }}" class="watermark">
+
+<div class="header">
+
+<table class="header-table">
+
+<tr>
+
+<td width="120">
+<img src="{{ logo }}" class="logo">
+</td>
+
+<td class="company-info">
+
+<div class="company-name">
+SVJM MOULD & SOLUTIONS
+</div>
+
+<div class="company-details">
+No. 27/19 Muthuramalingam Street<br>
+Ekkattuthangal, Chennai - 600032<br>
+E-Mail: sekhar_raman@yahoo.com | Mobile: 9600675380
+</div>
+
+<div class="gst">
+GST Number: 33EFMPS7708C1Z9
+</div>
+
+</td>
+
+<td width="120"></td>
+
+</tr>
+
+</table>
+
+</div>
+
+
+<div class="section">
+
+<table class="to-table">
+
+<tr>
+
+<td class="to-left">
+
+<b>To</b><br>
+{{ company }}<br>
+{{ address }}
+
+</td>
+
+<td class="to-right">
+
+<b>DATE:</b> {{ date }}
+
+</td>
+
+</tr>
+
+</table>
+
+</div>
+
+
+<div class="subject">
+Reg: {{ subject }}
+</div>
+
+
+<div class="intro">
+
+Dear Sir,<br><br>
+
+We thank you very much for your kindly enquiry and we are pleased to submit our lowest offer for mould the following items as per the model.
+
+</div>
+
+
+<table class="quote-table">
+
+<thead>
+
+<tr>
+<th>S.no</th>
+<th>Description</th>
+<th>Amount</th>
+<th>Machine</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+    {% if components|length > 0 %}
+    
+    {% for item in components %}
+    
+    <tr>
+    <td>{{ loop.index }}</td>
+    <td>{{ item.description }}</td>
+    <td>₹ {{ item.amount }}</td>
+    <td>{{ item.machine }}</td>
+    </tr>
+    
+    {% endfor %}
+    
+    {% else %}
+    
+    <tr>
+    <td colspan="4" style="text-align:center;">No Components Added</td>
+    </tr>
+    
+    {% endif %}
+    
+    </tbody>
+
+</table>
+
+
+<div class="footer-text">
+<b>Total Cost :</b> ₹ {{ total_cost }}
+</div>
+
+
+<div class="footer-text">
+We hope our above offer is in line with your requirements and we are awaiting for your valuable order at the earliest.
+</div>
+
+
+<div class="terms">
+
+<div class="terms-title">
+Terms and Conditions:
+</div>
+
+<ol>
+
+<li>50% Advance along with Purchase Order.</li>
+<li>25% Payment after trial.</li>
+<li>25% Final payment after delivery of the Mould.</li>
+<li>Delivery 40-45 working days and GST added to billing.</li>
+
+</ol>
+
+</div>
+
+
+<div class="bank-box">
+
+<b>Bank Details</b><br><br>
+
+Bank Name : IDBI Bank<br>
+Branch : Ashok Nagar<br>
+Account Number : 0630102000017037<br>
+IFSC Code : IBKL0000630
+
+</div>
+
+
+<div class="signature">
+
+<div class="signature-inner">
+
+With Regards,<br><br>
+
+<b>For SVJM MOULD & SOLUTIONS</b><br><br>
+
+<img src="{{ signature }}" class="sign-img"><br>
+
+Proprietor
+
+</div>
+
+</div>
+
+
+</body>
+</html>
