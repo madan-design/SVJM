@@ -132,7 +132,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
   Future<void> _viewFile(String filePath, String fileName) async {
     try {
       final url = await SupabaseService.getSignedUrl(filePath);
-      if (mounted) await FileActions.viewFile(context, url);
+      if (mounted) await FileActions.viewFile(context, url, fileName: fileName);
     } catch (e) {
       _snack('Error: $e');
     }
@@ -492,34 +492,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
                                 style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
                           );
                         }
-                        return Column(
-                          children: files.map((f) {
-                            final fileName = f['file_name'] as String;
-                            final filePath = f['file_path'] as String;
-                            final canView = FileActions.isViewable(fileName);
-                            return ListTile(
-                              leading: Text(FileActions.fileIcon(fileName),
-                                  style: const TextStyle(fontSize: 22)),
-                              title: Text(fileName,
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                              subtitle: Text(FileActions.formatSize(f['file_size'] as int?),
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                                if (canView)
-                                  IconButton(
-                                    icon: const Icon(Icons.visibility_rounded, size: 20, color: Color(0xFF1565C0)),
-                                    tooltip: 'View',
-                                    onPressed: () => _viewFile(filePath, fileName),
-                                  ),
-                                IconButton(
-                                  icon: const Icon(Icons.download_rounded, size: 20, color: Color(0xFF2E7D32)),
-                                  tooltip: 'Download',
-                                  onPressed: () => _downloadFile(filePath, fileName),
-                                ),
-                              ]),
-                            );
-                          }).toList(),
-                        );
+                        return _buildFilesList(files, context);
                       },
                     )
                   : const SizedBox.shrink(),
@@ -527,6 +500,84 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
           ]),
         );
       },
+    );
+  }
+
+  Widget _buildFilesList(List<Map<String, dynamic>> files, BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isWide = MediaQuery.of(context).size.width > 700;
+    
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.folder_open_rounded, size: 18),
+            const SizedBox(width: 6),
+            Text('Files (${files.length})',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          ]),
+          if (!isWide && files.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text('← Swipe left to reveal actions',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+          ],
+          const SizedBox(height: 12),
+          ...files.map((f) {
+            final fileName = f['file_name'] as String;
+            final filePath = f['file_path'] as String;
+            final canView = FileActions.isViewable(fileName);
+
+            return isWide 
+                ? Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8F9FA),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Row(children: [
+                        Text(FileActions.fileIcon(fileName), style: const TextStyle(fontSize: 20)),
+                        const SizedBox(width: 10),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(fileName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                          Text(FileActions.formatSize(f['file_size'] as int?),
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                        ])),
+                        // View button (only for viewable types)
+                        if (canView)
+                          _AdminFileActionBtn(
+                            icon: Icons.visibility_rounded,
+                            label: 'View',
+                            color: const Color(0xFF1565C0),
+                            onTap: () => _viewFile(filePath, fileName),
+                          ),
+                        const SizedBox(width: 4),
+                        // Download button (always)
+                        _AdminFileActionBtn(
+                          icon: Icons.download_rounded,
+                          label: 'Download',
+                          color: const Color(0xFF2E7D32),
+                          onTap: () => _downloadFile(filePath, fileName),
+                        ),
+                      ]),
+                    ),
+                  )
+                : _AdminSlidableFileItem(
+                    fileData: f,
+                    fileName: fileName,
+                    filePath: filePath,
+                    canView: canView,
+                    isDark: isDark,
+                    onView: () => _viewFile(filePath, fileName),
+                    onDownload: () => _downloadFile(filePath, fileName),
+                  );
+          }),
+        ],
+      ),
     );
   }
 }
@@ -557,6 +608,231 @@ class _ToggleBtn extends StatelessWidget {
               )),
         ),
       ),
+    );
+  }
+}
+
+// Admin File Action Button
+class _AdminFileActionBtn extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AdminFileActionBtn({required this.icon, required this.label, required this.color, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// Admin Slidable File Item
+class _AdminSlidableFileItem extends StatefulWidget {
+  final Map<String, dynamic> fileData;
+  final String fileName;
+  final String filePath;
+  final bool canView;
+  final bool isDark;
+  final VoidCallback onView;
+  final VoidCallback onDownload;
+
+  const _AdminSlidableFileItem({
+    required this.fileData,
+    required this.fileName,
+    required this.filePath,
+    required this.canView,
+    required this.isDark,
+    required this.onView,
+    required this.onDownload,
+  });
+
+  @override
+  State<_AdminSlidableFileItem> createState() => _AdminSlidableFileItemState();
+}
+
+class _AdminSlidableFileItemState extends State<_AdminSlidableFileItem> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+  double _drag = 0;
+  bool _isOpen = false;
+
+  static const double _revealFraction = 0.28;
+  static const double _snapThreshold = 0.15;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+    _anim = _ctrl.drive(CurveTween(curve: Curves.easeOut));
+  }
+
+  @override
+  void dispose() { 
+    _ctrl.dispose(); 
+    super.dispose(); 
+  }
+
+  void _onDragUpdate(DragUpdateDetails d, double max) =>
+      setState(() => _drag = (_drag - d.delta.dx).clamp(0.0, max));
+
+  void _onDragEnd(DragEndDetails d, double max) =>
+      _drag / max >= _snapThreshold ? _snapOpen(max) : _snapClose();
+
+  void _snapOpen(double max) {
+    _anim = Tween<double>(begin: _drag, end: max).chain(CurveTween(curve: Curves.easeOut)).animate(_ctrl);
+    _ctrl.forward(from: 0).then((_) => setState(() { _drag = max; _isOpen = true; }));
+  }
+
+  void _snapClose() {
+    _anim = Tween<double>(begin: _drag, end: 0).chain(CurveTween(curve: Curves.easeOut)).animate(_ctrl);
+    _ctrl.forward(from: 0).then((_) => setState(() { _drag = 0; _isOpen = false; }));
+  }
+
+  Widget _actionBtn(IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: () { 
+        _snapClose(); 
+        onTap(); 
+      },
+      child: Container(
+        width: 32, 
+        height: 32,
+        decoration: BoxDecoration(
+          color: color, 
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.3), 
+              blurRadius: 4, 
+              offset: const Offset(0, 1)
+            )
+          ]
+        ),
+        child: Icon(icon, color: Colors.white, size: 16),
+      ),
+    );
+  }
+
+  Widget _actionPanel(double w) {
+    final bg = widget.isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF0F0F0);
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topRight: Radius.circular(10), 
+        bottomRight: Radius.circular(10)
+      ),
+      child: Container(
+        width: w, 
+        color: bg,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            if (widget.canView)
+              _actionBtn(Icons.visibility_rounded, const Color(0xFF1565C0), widget.onView),
+            _actionBtn(Icons.download_rounded, const Color(0xFF2E7D32), widget.onDownload),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final fullWidth = constraints.maxWidth;
+        final maxSwipe = fullWidth * _revealFraction;
+
+        return GestureDetector(
+          onHorizontalDragUpdate: (d) => _onDragUpdate(d, maxSwipe),
+          onHorizontalDragEnd: (d) => _onDragEnd(d, maxSwipe),
+          child: SizedBox(
+            width: fullWidth,
+            child: ClipRect(
+              child: AnimatedBuilder(
+                animation: _ctrl,
+                builder: (ctx, _) {
+                  final offset = _ctrl.isAnimating ? _anim.value : _drag;
+                  return Stack(children: [
+                    Positioned(
+                      left: fullWidth - offset, 
+                      top: 0, 
+                      bottom: 0, 
+                      width: maxSwipe,
+                      child: _actionPanel(maxSwipe),
+                    ),
+                    Transform.translate(
+                      offset: Offset(-offset, 0),
+                      child: SizedBox(
+                        width: fullWidth,
+                        child: Material(
+                          color: widget.isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8F9FA),
+                          borderRadius: BorderRadius.circular(10),
+                          elevation: 1,
+                          shadowColor: Colors.black12,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () => _isOpen ? _snapClose() : (widget.canView ? widget.onView() : widget.onDownload()),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              child: Row(children: [
+                                Text(FileActions.fileIcon(widget.fileName), 
+                                    style: const TextStyle(fontSize: 20)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start, 
+                                    children: [
+                                      Text(widget.fileName, 
+                                          style: const TextStyle(
+                                            fontSize: 12, 
+                                            fontWeight: FontWeight.w500
+                                          )),
+                                      Text(FileActions.formatSize(widget.fileData['file_size'] as int?),
+                                          style: TextStyle(
+                                            fontSize: 10, 
+                                            color: Colors.grey.shade500
+                                          )),
+                                    ]
+                                  )
+                                ),
+                                Icon(
+                                  Icons.chevron_left, 
+                                  size: 12, 
+                                  color: Colors.grey.shade400
+                                ),
+                              ]),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ]);
+                },
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 }
