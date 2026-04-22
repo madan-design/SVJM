@@ -203,247 +203,422 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Assign Project'),
+        title: const Text('Assign Designer', style: TextStyle(fontWeight: FontWeight.w600)),
         centerTitle: true,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.assignment_rounded), text: 'Assign'),
-            Tab(icon: Icon(Icons.folder_special_rounded), text: 'View Files'),
-            Tab(icon: Icon(Icons.archive_rounded), text: 'Archive'),
-          ],
+        elevation: 0,
+        backgroundColor: isDark ? const Color(0xFF111111) : Colors.white,
+        surfaceTintColor: Colors.transparent,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TabBar(
+              controller: _tabController,
+              indicator: BoxDecoration(
+                color: const Color(0xFFC40000),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              indicatorSize: TabBarIndicatorSize.tab,
+              dividerColor: Colors.transparent,
+              labelColor: Colors.white,
+              unselectedLabelColor: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+              tabs: const [
+                Tab(icon: Icon(Icons.add_task_rounded, size: 18), text: 'Assign'),
+                Tab(icon: Icon(Icons.folder_copy_rounded, size: 18), text: 'View Files'),
+                Tab(icon: Icon(Icons.inventory_2_rounded, size: 18), text: 'Archive'),
+              ],
+            ),
+          ),
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    color: isDark ? const Color(0xFF3B82F6) : const Color(0xFF2563EB),
+                    strokeWidth: 3,
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Loading...', style: TextStyle(
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                    fontSize: 14,
+                  )),
+                ],
+              ),
+            )
           : TabBarView(
               controller: _tabController,
               children: [
-                _buildAssignTab(),
-                _buildViewFilesTab(),
-                _buildArchiveTab(),
+                _buildModernAssignTab(),
+                _buildModernViewFilesTab(),
+                _buildModernArchiveTab(),
               ],
             ),
     );
   }
 
-  // ── Assign Tab ─────────────────────────────────────────────
+  // ── Modern Assign Tab ─────────────────────────────────────────
 
-  Widget _buildAssignTab() {
+  Widget _buildModernAssignTab() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isWide = MediaQuery.of(context).size.width > 700;
+    final isWide = MediaQuery.of(context).size.width > 800;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       child: isWide
           ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(child: _buildForm(isDark)),
-              const SizedBox(width: 20),
-              Expanded(child: _buildTokenList(isDark)),
+              Expanded(flex: 2, child: _buildModernForm(isDark)),
+              const SizedBox(width: 32),
+              Expanded(flex: 3, child: _buildModernTokenGrid(isDark)),
             ])
           : Column(children: [
-              _buildForm(isDark),
-              const SizedBox(height: 24),
-              _buildTokenList(isDark),
+              _buildModernForm(isDark),
+              const SizedBox(height: 32),
+              _buildModernTokenGrid(isDark),
             ]),
     );
   }
 
-  Widget _buildForm(bool isDark) {
+  Widget _buildModernForm(bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 10)],
+        color: isDark ? const Color(0xFF111111) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF1F1F1F) : const Color(0xFFE2E8F0),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('New Assignment',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-
         Row(children: [
-          Expanded(
-            child: _ToggleBtn(
-              label: 'From Approved Quotes',
-              selected: !_useCustom,
-              onTap: () => setState(() => _useCustom = false),
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFC40000), Color(0xFFA30000)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: const Icon(Icons.add_task_rounded, color: Colors.white, size: 20),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _ToggleBtn(
-              label: 'Custom Project',
-              selected: _useCustom,
-              onTap: () => setState(() => _useCustom = true),
-            ),
-          ),
+          const SizedBox(width: 12),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('New Assignment', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text('Create and assign project to designer', 
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+          ]),
         ]),
-        const SizedBox(height: 16),
+        const SizedBox(height: 28),
+
+        // Toggle buttons
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(children: [
+            Expanded(
+              child: _ModernToggleBtn(
+                label: 'From Quotes',
+                icon: Icons.description_rounded,
+                selected: !_useCustom,
+                onTap: () => setState(() => _useCustom = false),
+                isDark: isDark,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: _ModernToggleBtn(
+                label: 'Custom Project',
+                icon: Icons.edit_rounded,
+                selected: _useCustom,
+                onTap: () => setState(() => _useCustom = true),
+                isDark: isDark,
+              ),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 24),
 
         if (!_useCustom) ...[
-          const Text('Select Approved Quote',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          _buildModernLabel('Select Approved Quote', Icons.description_rounded),
           const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            initialValue: _selectedQuoteFileName,
-            hint: const Text('Choose a quote...'),
-            isExpanded: true,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              filled: true,
-              fillColor: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8F8F8),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            ),
-            items: _approvedQuotes
-                .map((q) => DropdownMenuItem(
-                      value: q['fileName'] as String,
-                      child: Text(q['fileName'] as String,
-                          overflow: TextOverflow.ellipsis),
-                    ))
-                .toList(),
+          _buildModernDropdown(
+            value: _selectedQuoteFileName,
+            hint: 'Choose a quote...',
+            items: _approvedQuotes.map((q) => DropdownMenuItem(
+              value: q['fileName'] as String,
+              child: Text(q['fileName'] as String, overflow: TextOverflow.ellipsis),
+            )).toList(),
             onChanged: (v) => setState(() => _selectedQuoteFileName = v),
+            isDark: isDark,
           ),
         ] else ...[
-          const Text('Project Name',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          _buildModernLabel('Project Name', Icons.edit_rounded),
           const SizedBox(height: 8),
-          TextField(
+          _buildModernTextField(
             controller: _customNameCtrl,
-            decoration: InputDecoration(
-              hintText: 'Enter project name...',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              filled: true,
-              fillColor: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8F8F8),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            ),
+            hint: 'Enter project name...',
+            isDark: isDark,
           ),
         ],
 
-        const SizedBox(height: 16),
-        const Text('Assign To (Designer)',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 20),
+        _buildModernLabel('Assign To Designer', Icons.person_rounded),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: _selectedMdeId,
-          hint: const Text('Choose a designer...'),
-          isExpanded: true,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            filled: true,
-            fillColor: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8F8F8),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          ),
-          items: _mdeList
-              .map((m) => DropdownMenuItem(
-                    value: m['id'] as String,
-                    child: Text(m['name'] as String),
-                  ))
-              .toList(),
+        _buildModernDropdown(
+          value: _selectedMdeId,
+          hint: 'Choose a designer...',
+          items: _mdeList.map((m) => DropdownMenuItem(
+            value: m['id'] as String,
+            child: Row(children: [
+              CircleAvatar(
+                radius: 12,
+                backgroundColor: const Color(0xFFC40000),
+                child: Text((m['name'] as String)[0].toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 8),
+              Text(m['name'] as String),
+            ]),
+          )).toList(),
           onChanged: (v) => setState(() => _selectedMdeId = v),
+          isDark: isDark,
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 32),
         SizedBox(
           width: double.infinity,
-          height: 48,
-          child: ElevatedButton.icon(
-            icon: _submitting
-                ? const SizedBox(
-                    width: 18, height: 18,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Icon(Icons.assignment_turned_in_rounded),
-            label: const Text('Assign Project', style: TextStyle(fontSize: 15)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2E7D32),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
+          height: 52,
+          child: ElevatedButton(
             onPressed: _submitting ? null : _assign,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              disabledBackgroundColor: Colors.grey.shade300,
+            ),
+            child: _submitting
+                ? const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.send_rounded, size: 18),
+                      SizedBox(width: 8),
+                      Text('Assign Project', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
           ),
         ),
       ]),
     );
   }
 
-  Widget _buildTokenList(bool isDark) {
+  Widget _buildModernTokenGrid(bool isDark) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Assigned Tokens',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-      const SizedBox(height: 12),
-      if (_tokens.isEmpty)
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text('No tokens created yet',
-                style: TextStyle(color: Colors.grey.shade500)),
+      Row(children: [
+        Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+            color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
           ),
+          child: const Icon(Icons.token_rounded, color: Color(0xFF8B5CF6), size: 16),
+        ),
+        const SizedBox(width: 12),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Active Assignments', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          Text('${_tokens.length} tokens created', 
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+        ]),
+      ]),
+      const SizedBox(height: 20),
+      if (_tokens.isEmpty)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF111111) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? const Color(0xFF1F1F1F) : const Color(0xFFE2E8F0),
+            ),
+          ),
+          child: Column(children: [
+            Icon(Icons.assignment_outlined, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text('No assignments yet', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+            const SizedBox(height: 4),
+            Text('Create your first assignment above', 
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+          ]),
         )
       else
-        ..._tokens.map((t) {
-          final status = t['status'] as String;
-          final mdeName = (t['assigned_profile'] as Map?)?['name'] ?? 'Unknown';
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF2A2A2A) : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: MediaQuery.of(context).size.width > 1200 ? 2 : 1,
+            childAspectRatio: 3.5,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: _tokens.length,
+          itemBuilder: (context, index) {
+            final token = _tokens[index];
+            return _buildModernTokenCard(token, isDark);
+          },
+        ),
+    ]);
+  }
+
+  Widget _buildModernTokenCard(Map<String, dynamic> token, bool isDark) {
+    final status = token['status'] as String;
+    final mdeName = (token['assigned_profile'] as Map?)?['name'] ?? 'Unknown';
+    final isCompleted = status == 'completed';
+    
+    return InkWell(
+      onTap: () {
+        _tabController.animateTo(1);
+        setState(() {
+          _expandedIndex = _tokens.indexOf(token);
+        });
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF111111) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? const Color(0xFF1F1F1F) : const Color(0xFFE2E8F0),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
             ),
-            child: Row(children: [
-              Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: status == 'completed'
-                      ? Colors.green.withValues(alpha: 0.12)
-                      : const Color(0xFF2E7D32).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  status == 'completed' ? Icons.check_circle_rounded : Icons.pending_rounded,
-                  color: status == 'completed' ? Colors.green : const Color(0xFF2E7D32),
-                  size: 22,
-                ),
+          ],
+        ),
+        child: Row(children: [
+          Container(
+            width: 48, height: 48,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isCompleted 
+                    ? [const Color(0xFF10B981), const Color(0xFF059669)]
+                    : [const Color(0xFFF59E0B), const Color(0xFFD97706)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(t['project_name'] as String,
-                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                const SizedBox(height: 3),
-                Text('Designer: $mdeName',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-              ])),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              isCompleted ? Icons.check_circle_rounded : Icons.schedule_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    token['project_name'] as String,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Flexible(
+                  child: Row(children: [
+                    Icon(Icons.person_outline, size: 14, color: Colors.grey.shade500),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        mdeName,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ]),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: status == 'completed'
-                      ? Colors.green.shade100
-                      : const Color(0xFFFFF3CD),
-                  borderRadius: BorderRadius.circular(8),
+                  color: isCompleted 
+                      ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                      : const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  status == 'completed' ? '✓ Done' : '⏳ Active',
+                  isCompleted ? 'Done' : 'Active',
                   style: TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w600,
-                    color: status == 'completed'
-                        ? Colors.green.shade800
-                        : Colors.orange.shade800,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: isCompleted ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: Icon(Icons.archive_rounded, color: Colors.orange.shade600, size: 20),
-                onPressed: () => _archiveToken(t['id'] as String),
-                tooltip: 'Archive Token',
+              const SizedBox(height: 6),
+              InkWell(
+                onTap: () => _archiveToken(token['id'] as String),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFC40000).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.archive_rounded, color: Color(0xFFC40000), size: 14),
+                ),
               ),
-            ]),
-          );
-        }),
-    ]);
+            ],
+          ),
+        ]),
+      ),
+    );
   }
 
   // ── Archive Tab ─────────────────────────────────────────────────────────────────
@@ -572,444 +747,616 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
     );
   }
 
-  // ── View Files Tab ─────────────────────────────────────────
+  // ── Modern View Files Tab ─────────────────────────────────────────
 
-  Widget _buildViewFilesTab() {
-    if (_tokens.isEmpty) {
+  Widget _buildModernViewFilesTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return FutureBuilder<Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>>(
+      future: SupabaseService.getFilesGroupedByDesignerYearAndToken(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  color: const Color(0xFFC40000),
+                  strokeWidth: 3,
+                ),
+                const SizedBox(height: 16),
+                Text('Loading files...', style: TextStyle(
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                  fontSize: 14,
+                )),
+              ],
+            ),
+          );
+        }
+        
+        final groupedFiles = snapshot.data ?? {};
+        
+        if (groupedFiles.isEmpty) {
+          return Center(
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(
+                width: 80, height: 80,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Icon(Icons.folder_open_rounded, size: 40, color: Colors.grey.shade400),
+              ),
+              const SizedBox(height: 16),
+              Text('No files uploaded yet', 
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 16, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 4),
+              Text('Files will appear here once designers upload them', 
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
+            ]),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(24),
+          itemCount: groupedFiles.keys.length,
+          itemBuilder: (context, designerIndex) {
+            final designerName = groupedFiles.keys.elementAt(designerIndex);
+            final yearGroups = groupedFiles[designerName]!;
+            
+            // Get designer ID from first file to fetch project counts
+            final firstYear = yearGroups.keys.first;
+            final firstToken = yearGroups[firstYear]!.keys.first;
+            final firstFile = yearGroups[firstYear]![firstToken]!.first;
+            final designerId = firstFile['tokens']['assigned_to'] as String;
+            
+            return Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF111111) : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark ? const Color(0xFF1F1F1F) : const Color(0xFFE2E8F0),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: FutureBuilder<Map<String, int>>(
+                future: SupabaseService.getDesignerProjectCounts(designerId),
+                builder: (context, countsSnapshot) {
+                  final counts = countsSnapshot.data ?? {'assigned': 0, 'completed': 0};
+                  final assignedCount = counts['assigned'] ?? 0;
+                  final completedCount = counts['completed'] ?? 0;
+                  
+                  return ExpansionTile(
+                    tilePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    childrenPadding: const EdgeInsets.only(bottom: 16),
+                    leading: Container(
+                      width: 48, height: 48,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFC40000), Color(0xFFA30000)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Center(
+                        child: Text(
+                          designerName[0].toUpperCase(),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                        ),
+                      ),
+                    ),
+                    title: Text(designerName, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(children: [
+                        _buildProjectBadge(assignedCount, 'assigned', const Color(0xFFF59E0B)),
+                        const SizedBox(width: 8),
+                        _buildProjectBadge(completedCount, 'completed', const Color(0xFF10B981)),
+                      ]),
+                    ),
+                    children: yearGroups.keys.map((year) {
+                      final tokenGroups = yearGroups[year]!;
+                      final projectCount = tokenGroups.keys.length;
+                      
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ExpansionTile(
+                          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          leading: Container(
+                            width: 32, height: 32,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.calendar_today, color: Color(0xFF8B5CF6), size: 16),
+                          ),
+                          title: Text(year, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                          subtitle: Text('$projectCount projects', 
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                          children: tokenGroups.keys.map((tokenId) {
+                            final files = tokenGroups[tokenId]!;
+                            final projectName = files.first['project_name'] as String;
+                            final tokenStatus = files.first['token_status'] as String;
+                            final isTokenArchived = files.first['token_archived'] as bool? ?? false;
+                            final folderTimestamp = files.first['folder_timestamp'] as String;
+                            
+                            return Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF0F0F0F) : Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border: isTokenArchived ? Border.all(
+                                  color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+                                  width: 1,
+                                ) : null,
+                              ),
+                              child: ExpansionTile(
+                                tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                leading: Container(
+                                  width: 28, height: 28,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: tokenStatus == 'completed' 
+                                          ? [const Color(0xFF10B981), const Color(0xFF059669)]
+                                          : [const Color(0xFFF59E0B), const Color(0xFFD97706)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(7),
+                                  ),
+                                  child: Icon(
+                                    tokenStatus == 'completed' 
+                                        ? Icons.check_circle_rounded 
+                                        : Icons.schedule_rounded,
+                                    color: Colors.white,
+                                    size: 14,
+                                  ),
+                                ),
+                                title: Row(children: [
+                                  Expanded(
+                                    child: Text(
+                                      '$projectName • $folderTimestamp',
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (isTokenArchived) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Text(
+                                        'Archived',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFFEF4444),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ]),
+                                subtitle: Text(
+                                  '${files.length} files • ${tokenStatus == 'completed' ? 'Completed' : 'Active'}',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                ),
+                                children: files.map((file) {
+                                  return _buildModernFileItem(file, context);
+                                }).toList(),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+  
+  Widget _buildProjectBadge(int count, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$count $label',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildModernFileItem(Map<String, dynamic> file, BuildContext context) {
+    final fileName = file['file_name'] as String;
+    final filePath = file['file_path'] as String;
+    final formattedDate = file['formatted_date'] as String;
+    final canView = FileActions.isViewable(fileName);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE5E7EB),
+        ),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        leading: Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+            color: const Color(0xFFC40000).withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              FileActions.fileIcon(fileName),
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+        ),
+        title: Text(
+          fileName,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          formattedDate,
+          style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (canView)
+              _buildFileActionButton(
+                Icons.visibility_rounded,
+                const Color(0xFFC40000),
+                () => _viewFile(filePath, fileName),
+              ),
+            const SizedBox(width: 4),
+            _buildFileActionButton(
+              Icons.download_rounded,
+              const Color(0xFF10B981),
+              () => _downloadFile(filePath, fileName),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildFileActionButton(IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        width: 28, height: 28,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Icon(icon, size: 14, color: color),
+      ),
+    );
+  }
+
+
+  // ── Modern Archive Tab ─────────────────────────────────────────────────────────────────
+
+  Widget _buildModernArchiveTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    if (_archivedTokens.isEmpty) {
       return Center(
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.folder_open_rounded, size: 56, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          Text('No tokens assigned yet',
-              style: TextStyle(color: Colors.grey.shade500)),
+          Container(
+            width: 80, height: 80,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(Icons.inventory_2_rounded, size: 40, color: Colors.grey.shade400),
+          ),
+          const SizedBox(height: 16),
+          Text('No archived tokens', 
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 16, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 4),
+          Text('Archived tokens will appear here', 
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
         ]),
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _tokens.length,
-      itemBuilder: (context, i) {
-        final token = _tokens[i];
-        final isOpen = _expandedIndex == i;
-        final mdeName = (token['assigned_profile'] as Map?)?['name'] ?? 'Unknown';
-        final status = token['status'] as String;
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          clipBehavior: Clip.hardEdge,
-          child: Column(children: [
-            InkWell(
-              onTap: () => setState(() {
-                _expandedIndex = isOpen ? -1 : i;
-                if (!isOpen) _filesCache.remove(token['id']);
-              }),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(children: [
-                  Container(
-                    width: 40, height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE6A817).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.folder_special_rounded,
-                        color: Color(0xFFE6A817), size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(token['project_name'] as String,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(height: 3),
-                    Text('Designer: $mdeName',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                  ])),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: status == 'completed'
-                          ? Colors.green.shade100
-                          : const Color(0xFFFFF3CD),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      status == 'completed' ? '✓ Done' : '⏳ Active',
-                      style: TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w600,
-                        color: status == 'completed'
-                            ? Colors.green.shade800
-                            : Colors.orange.shade800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(isOpen ? Icons.expand_less : Icons.expand_more,
-                      color: Colors.grey),
-                ]),
-              ),
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeInOut,
-              child: isOpen
-                  ? FutureBuilder<List<Map<String, dynamic>>>(
-                      future: _getFiles(token['id'] as String),
-                      builder: (context, snap) {
-                        if (snap.connectionState == ConnectionState.waiting) {
-                          return const Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                          );
-                        }
-                        final files = snap.data ?? [];
-                        if (files.isEmpty) {
-                          return Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Text('No files uploaded yet.',
-                                style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                          );
-                        }
-                        return _buildFilesList(files, context);
-                      },
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          ]),
-        );
+      padding: const EdgeInsets.all(24),
+      itemCount: _archivedTokens.length,
+      itemBuilder: (context, index) {
+        final token = _archivedTokens[index];
+        return _buildModernArchivedTokenCard(token, isDark);
       },
     );
   }
 
-  Widget _buildFilesList(List<Map<String, dynamic>> files, BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isWide = MediaQuery.of(context).size.width > 700;
+  Widget _buildModernArchivedTokenCard(Map<String, dynamic> token, bool isDark) {
+    final status = token['status'] as String;
+    final mdeName = (token['assigned_profile'] as Map?)?['name'] ?? 'Unknown';
+    final archivedAt = token['archived_at'] as String?;
+    final archivedDate = archivedAt != null 
+        ? DateTime.parse(archivedAt)
+        : DateTime.now();
+    final formattedDate = '${archivedDate.day}/${archivedDate.month}/${archivedDate.year}';
     
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            const Icon(Icons.folder_open_rounded, size: 18),
-            const SizedBox(width: 6),
-            Text('Files (${files.length})',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-          ]),
-          if (!isWide && files.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text('← Swipe left to reveal actions',
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-          ],
-          const SizedBox(height: 12),
-          ...files.map((f) {
-            final fileName = f['file_name'] as String;
-            final filePath = f['file_path'] as String;
-            final canView = FileActions.isViewable(fileName);
-
-            return isWide 
-                ? Container(
-                    margin: const EdgeInsets.only(bottom: 6),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8F9FA),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      child: Row(children: [
-                        Text(FileActions.fileIcon(fileName), style: const TextStyle(fontSize: 20)),
-                        const SizedBox(width: 10),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(fileName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-                          Text(FileActions.formatSize(f['file_size'] as int?),
-                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                        ])),
-                        // View button (only for viewable types)
-                        if (canView)
-                          _AdminFileActionBtn(
-                            icon: Icons.visibility_rounded,
-                            label: 'View',
-                            color: const Color(0xFF1565C0),
-                            onTap: () => _viewFile(filePath, fileName),
-                          ),
-                        const SizedBox(width: 4),
-                        // Download button (always)
-                        _AdminFileActionBtn(
-                          icon: Icons.download_rounded,
-                          label: 'Download',
-                          color: const Color(0xFF2E7D32),
-                          onTap: () => _downloadFile(filePath, fileName),
-                        ),
-                      ]),
-                    ),
-                  )
-                : _AdminSlidableFileItem(
-                    fileData: f,
-                    fileName: fileName,
-                    filePath: filePath,
-                    canView: canView,
-                    isDark: isDark,
-                    onView: () => _viewFile(filePath, fileName),
-                    onDownload: () => _downloadFile(filePath, fileName),
-                  );
-          }),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111111) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
+      child: Column(children: [
+        Row(children: [
+          Container(
+            width: 48, height: 48,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.inventory_2_rounded, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                token['project_name'] as String,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Row(children: [
+                Icon(Icons.person_outline, size: 14, color: Colors.grey.shade500),
+                const SizedBox(width: 4),
+                Text(
+                  mdeName,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                ),
+                const SizedBox(width: 12),
+                Icon(Icons.schedule, size: 14, color: Colors.grey.shade500),
+                const SizedBox(width: 4),
+                Text(
+                  formattedDate,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                ),
+              ]),
+            ]),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'Archived',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFEF4444),
+              ),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.restore_rounded, size: 16),
+              label: const Text('Restore', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => _unarchiveToken(token['id'] as String),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.delete_forever_rounded, size: 16),
+              label: const Text('Delete Forever', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFEF4444),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => _permanentlyDeleteToken(token['id'] as String),
+            ),
+          ),
+        ]),
+      ]),
+    );
+  }
+
+  // ── Modern Helper Widgets ──────────────────────────────────────────────────────────────
+
+  Widget _buildModernLabel(String text, IconData icon) {
+    return Row(children: [
+      Icon(icon, size: 16, color: Colors.grey.shade600),
+      const SizedBox(width: 6),
+      Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+    ]);
+  }
+
+  Widget _buildModernTextField({
+    required TextEditingController controller,
+    required String hint,
+    required bool isDark,
+  }) {
+    return TextField(
+      controller: controller,
+      decoration: InputDecoration(
+        hintText: hint,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE2E8F0)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFC40000), width: 2),
+        ),
+        filled: true,
+        fillColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF8FAFC),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+    );
+  }
+
+  Widget _buildModernDropdown<T>({
+    required T? value,
+    required String hint,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+    required bool isDark,
+  }) {
+    return DropdownButtonFormField<T>(
+      value: value,
+      hint: Text(hint, style: TextStyle(color: Colors.grey.shade500)),
+      isExpanded: true,
+      decoration: InputDecoration(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE2E8F0)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFC40000), width: 2),
+        ),
+        filled: true,
+        fillColor: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF8FAFC),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+      items: items,
+      onChanged: onChanged,
     );
   }
 }
 
-// ── Toggle Button ──────────────────────────────────────────────────────────────
+// ── Modern Toggle Button ───────────────────────────────────────────────────────────────
 
-class _ToggleBtn extends StatelessWidget {
+class _ModernToggleBtn extends StatelessWidget {
   final String label;
+  final IconData icon;
   final bool selected;
   final VoidCallback onTap;
-  const _ToggleBtn({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF2E7D32) : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text(label,
-              style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : Colors.grey.shade700,
-              )),
-        ),
-      ),
-    );
-  }
-}
-
-// Admin File Action Button
-class _AdminFileActionBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _AdminFileActionBtn({required this.icon, required this.label, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: label,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(6),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 3),
-            Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
-          ]),
-        ),
-      ),
-    );
-  }
-}
-
-// Admin Slidable File Item
-class _AdminSlidableFileItem extends StatefulWidget {
-  final Map<String, dynamic> fileData;
-  final String fileName;
-  final String filePath;
-  final bool canView;
   final bool isDark;
-  final VoidCallback onView;
-  final VoidCallback onDownload;
 
-  const _AdminSlidableFileItem({
-    required this.fileData,
-    required this.fileName,
-    required this.filePath,
-    required this.canView,
+  const _ModernToggleBtn({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
     required this.isDark,
-    required this.onView,
-    required this.onDownload,
   });
 
   @override
-  State<_AdminSlidableFileItem> createState() => _AdminSlidableFileItemState();
-}
-
-class _AdminSlidableFileItemState extends State<_AdminSlidableFileItem> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-  double _drag = 0;
-  bool _isOpen = false;
-
-  static const double _revealFraction = 0.28;
-  static const double _snapThreshold = 0.15;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
-    _anim = _ctrl.drive(CurveTween(curve: Curves.easeOut));
-  }
-
-  @override
-  void dispose() { 
-    _ctrl.dispose(); 
-    super.dispose(); 
-  }
-
-  void _onDragUpdate(DragUpdateDetails d, double max) =>
-      setState(() => _drag = (_drag - d.delta.dx).clamp(0.0, max));
-
-  void _onDragEnd(DragEndDetails d, double max) =>
-      _drag / max >= _snapThreshold ? _snapOpen(max) : _snapClose();
-
-  void _snapOpen(double max) {
-    _anim = Tween<double>(begin: _drag, end: max).chain(CurveTween(curve: Curves.easeOut)).animate(_ctrl);
-    _ctrl.forward(from: 0).then((_) => setState(() { _drag = max; _isOpen = true; }));
-  }
-
-  void _snapClose() {
-    _anim = Tween<double>(begin: _drag, end: 0).chain(CurveTween(curve: Curves.easeOut)).animate(_ctrl);
-    _ctrl.forward(from: 0).then((_) => setState(() { _drag = 0; _isOpen = false; }));
-  }
-
-  Widget _actionBtn(IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: () { 
-        _snapClose(); 
-        onTap(); 
-      },
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        width: 32, 
-        height: 32,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
-          color: color, 
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.3), 
-              blurRadius: 4, 
-              offset: const Offset(0, 1)
-            )
-          ]
+          gradient: selected
+              ? const LinearGradient(
+                  colors: [Color(0xFFC40000), Color(0xFFA30000)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
+          color: selected ? null : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, color: Colors.white, size: 16),
-      ),
-    );
-  }
-
-  Widget _actionPanel(double w) {
-    final bg = widget.isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF0F0F0);
-    return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        topRight: Radius.circular(10), 
-        bottomRight: Radius.circular(10)
-      ),
-      child: Container(
-        width: w, 
-        color: bg,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (widget.canView)
-              _actionBtn(Icons.visibility_rounded, const Color(0xFF1565C0), widget.onView),
-            _actionBtn(Icons.download_rounded, const Color(0xFF2E7D32), widget.onDownload),
+            Icon(
+              icon,
+              size: 16,
+              color: selected
+                  ? Colors.white
+                  : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: selected
+                    ? Colors.white
+                    : (isDark ? Colors.grey.shade400 : Colors.grey.shade600),
+              ),
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: LayoutBuilder(builder: (context, constraints) {
-        final fullWidth = constraints.maxWidth;
-        final maxSwipe = fullWidth * _revealFraction;
-
-        return GestureDetector(
-          onHorizontalDragUpdate: (d) => _onDragUpdate(d, maxSwipe),
-          onHorizontalDragEnd: (d) => _onDragEnd(d, maxSwipe),
-          child: SizedBox(
-            width: fullWidth,
-            child: ClipRect(
-              child: AnimatedBuilder(
-                animation: _ctrl,
-                builder: (ctx, _) {
-                  final offset = _ctrl.isAnimating ? _anim.value : _drag;
-                  return Stack(children: [
-                    Positioned(
-                      left: fullWidth - offset, 
-                      top: 0, 
-                      bottom: 0, 
-                      width: maxSwipe,
-                      child: _actionPanel(maxSwipe),
-                    ),
-                    Transform.translate(
-                      offset: Offset(-offset, 0),
-                      child: SizedBox(
-                        width: fullWidth,
-                        child: Material(
-                          color: widget.isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF8F9FA),
-                          borderRadius: BorderRadius.circular(10),
-                          elevation: 1,
-                          shadowColor: Colors.black12,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(10),
-                            onTap: () => _isOpen ? _snapClose() : (widget.canView ? widget.onView() : widget.onDownload()),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              child: Row(children: [
-                                Text(FileActions.fileIcon(widget.fileName), 
-                                    style: const TextStyle(fontSize: 20)),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start, 
-                                    children: [
-                                      Text(widget.fileName, 
-                                          style: const TextStyle(
-                                            fontSize: 12, 
-                                            fontWeight: FontWeight.w500
-                                          )),
-                                      Text(FileActions.formatSize(widget.fileData['file_size'] as int?),
-                                          style: TextStyle(
-                                            fontSize: 10, 
-                                            color: Colors.grey.shade500
-                                          )),
-                                    ]
-                                  )
-                                ),
-                                Icon(
-                                  Icons.chevron_left, 
-                                  size: 12, 
-                                  color: Colors.grey.shade400
-                                ),
-                              ]),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ]);
-                },
-              ),
-            ),
-          ),
-        );
-      }),
     );
   }
 }

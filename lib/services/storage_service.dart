@@ -162,9 +162,13 @@ class StorageService {
       
       // Get tokens with error handling
       List<dynamic> tokenList = [];
+      List<dynamic> archivedTokenList = [];
       try {
-        final tokens = await _db.from('tokens').select('id, status');
+        final tokens = await _db.from('tokens').select('id, status, archived').eq('archived', false);
         tokenList = tokens as List;
+        
+        final archivedTokens = await _db.from('tokens').select('id, status, archived').eq('archived', true);
+        archivedTokenList = archivedTokens as List;
       } catch (e) {
         // If tokens table doesn't exist or user doesn't have access, continue with empty list
         print('Error fetching tokens: $e');
@@ -177,6 +181,7 @@ class StorageService {
         'completed':   all.where((q) => q['status'] == 'completed').length,
         'tasksAssigned':  tokenList.length,
         'tasksCompleted': tokenList.where((t) => t['status'] == 'completed').length,
+        'archivedTokens': archivedTokenList.length,
       };
     } catch (e) {
       print('Error in getDashboardStats: $e');
@@ -188,6 +193,7 @@ class StorageService {
         'completed': 0,
         'tasksAssigned': 0,
         'tasksCompleted': 0,
+        'archivedTokens': 0,
       };
     }
   }

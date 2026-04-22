@@ -327,6 +327,104 @@ class SupabaseService {
     }
   }
 
+  // Get files grouped by designer, year, and token with project counts (including archived)
+  static Future<Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>> getFilesGroupedByDesignerYearAndToken() async {
+    try {
+      final data = await _db
+          .from('token_files')
+          .select('*, tokens!inner(id, project_name, status, archived, assigned_to, assigned_profile:profiles!tokens_assigned_to_fkey(name))')
+          .eq('archived', false) // Only non-archived files
+          .order('uploaded_at', ascending: false);
+      
+      final Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>> grouped = {};
+      
+      for (final file in data) {
+        final token = file['tokens'] as Map<String, dynamic>;
+        final profile = token['assigned_profile'] as Map<String, dynamic>?;
+        final designerName = profile?['name'] as String? ?? 'Unknown Designer';
+        final tokenId = token['id'] as String;
+        final projectName = token['project_name'] as String;
+        final isTokenArchived = token['archived'] as bool? ?? false;
+        
+        final uploadedAt = DateTime.parse(file['uploaded_at'] as String);
+        final year = uploadedAt.year.toString();
+        
+        // Create nested structure: Designer -> Year -> Token/Project -> Files
+        if (!grouped.containsKey(designerName)) {
+          grouped[designerName] = {};
+        }
+        if (!grouped[designerName]!.containsKey(year)) {
+          grouped[designerName]![year] = {};
+        }
+        if (!grouped[designerName]![year]!.containsKey(tokenId)) {
+          grouped[designerName]![year]![tokenId] = [];
+        }
+        
+        // Add file with timestamp and project info
+        grouped[designerName]![year]![tokenId]!.add({
+          ...file,
+          'project_name': projectName,
+          'token_status': token['status'],
+          'token_archived': isTokenArchived,
+          'formatted_date': _formatTimestamp(uploadedAt),
+          'folder_timestamp': _formatFolderTimestamp(uploadedAt),
+        });
+      }
+      
+      return grouped;
+    } catch (e) {
+      print('Error getting grouped files: $e');
+      return {};
+    }
+  }
+  
+  static String _formatFolderTimestamp(DateTime dateTime) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final month = months[dateTime.month - 1];
+    final day = dateTime.day;
+    return '$month $day';
+  }
+  
+  // Get project counts for a designer
+  static Future<Map<String, int>> getDesignerProjectCounts(String designerId) async {
+    try {
+      final data = await _db
+          .from('tokens')
+          .select('status')
+          .eq('assigned_to', designerId)
+          .eq('archived', false);
+      
+      int assigned = 0;
+      int completed = 0;
+      
+      for (final token in data) {
+        final status = token['status'] as String;
+        if (status == 'completed') {
+          completed++;
+        } else {
+          assigned++;
+        }
+      }
+      
+      return {
+        'assigned': assigned,
+        'completed': completed,
+      };
+    } catch (e) {
+      print('Error getting designer project counts: $e');
+      return {'assigned': 0, 'completed': 0};
+    }
+  }
+  
+  static String _formatTimestamp(DateTime dateTime) {
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final month = dateTime.month.toString().padLeft(2, '0');
+    final year = dateTime.year;
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$day/$month/$year $hour:$minute';
+  }
   // Permanently delete all archived files for current user
   static Future<void> deleteAllArchivedFiles() async {
     try {

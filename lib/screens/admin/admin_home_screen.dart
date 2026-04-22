@@ -48,7 +48,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     _NavItemData('Quote Generator', Icons.description_rounded),
     _NavItemData('Projects', Icons.work_rounded),
     _NavItemData('Archive', Icons.archive_rounded),
-    _NavItemData('Assign Project', Icons.assignment_rounded),
+    _NavItemData('Assign Designer', Icons.assignment_rounded),
   ];
 
   @override
@@ -264,7 +264,7 @@ class _MobileAdminHome extends StatelessWidget {
           const Icon(Icons.archive_rounded, size: 28, color: Color(0xFF555555)),
           const Color(0xFF555555), isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5),
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ArchiveScreen()))),
-      _CardData('Assign Project', 'Create tokens, assign & view files',
+      _CardData('Assign Designer', 'Create tokens, assign & view files',
           const Icon(Icons.assignment_rounded, size: 28, color: Color(0xFF2E7D32)),
           const Color(0xFF2E7D32), isDark ? const Color(0xFF0A1F0A) : const Color(0xFFF0FFF0),
           () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AssignProjectScreen()))),
@@ -537,9 +537,15 @@ class _DashboardPageState extends State<_DashboardPage> {
         const SizedBox(height: 16),
         
         Wrap(spacing: 12, runSpacing: 12, children: [
-          _QuickActionCard('Create Quote', Icons.add_circle_outline, const Color(0xFFC40000), isDark),
-          _QuickActionCard('View Projects', Icons.work_outline, const Color(0xFF1565C0), isDark),
-          _QuickActionCard('Assign Task', Icons.assignment_ind, const Color(0xFF2E7D32), isDark),
+          _QuickActionCard('Create Quote', Icons.add_circle_outline, const Color(0xFFC40000), isDark, () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const FormSlides()));
+          }),
+          _QuickActionCard('View Projects', Icons.work_outline, const Color(0xFF1565C0), isDark, () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ProjectsScreen()));
+          }),
+          _QuickActionCard('Assign Task', Icons.assignment_ind, const Color(0xFF2E7D32), isDark, () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const AssignProjectScreen()));
+          }),
         ]),
       ]),
     );
@@ -588,25 +594,30 @@ class _QuickActionCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final bool isDark;
+  final VoidCallback onTap;
   
-  const _QuickActionCard(this.title, this.icon, this.color, this.isDark);
+  const _QuickActionCard(this.title, this.icon, this.color, this.isDark, this.onTap);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 140,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 140,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
+              color: isDark ? Colors.white70 : const Color(0xFF1A1A2E)), textAlign: TextAlign.center),
+        ]),
       ),
-      child: Column(children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 8),
-        Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500,
-            color: isDark ? Colors.white70 : const Color(0xFF1A1A2E)), textAlign: TextAlign.center),
-      ]),
     );
   }
 }
