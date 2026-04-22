@@ -5,7 +5,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:typed_data';
 import '../services/auth_service.dart';
-import '../screens/login_screen.dart';
+import '../screens/auth_wrapper.dart';
 // Web-only imports - using conditional import
 import 'web_utils_stub.dart'
     if (dart.library.html) 'web_utils_web.dart';
@@ -119,7 +119,7 @@ class _WebLayout extends StatelessWidget {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                          child: Image.asset('assets/new_logo.png', fit: BoxFit.contain),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -289,7 +289,7 @@ class _MobileLayout extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(6),
-              child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+              child: Image.asset('assets/new_logo.png', fit: BoxFit.contain),
             ),
           ),
           const SizedBox(width: 10),
@@ -606,7 +606,7 @@ Future<void> confirmLogout(BuildContext context) async {
     await AuthService.logout();
     if (context.mounted) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()), (_) => false);
+        MaterialPageRoute(builder: (_) => const AuthWrapper()), (_) => false);
     }
   }
 }

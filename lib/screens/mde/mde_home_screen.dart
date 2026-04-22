@@ -282,7 +282,7 @@ class _WebMdeShell extends StatelessWidget {
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10)),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+                      child: Image.asset('assets/new_logo.png', fit: BoxFit.contain),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -440,7 +440,7 @@ class _MobileMdeHome extends StatelessWidget {
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(7)),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(7),
-              child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+              child: Image.asset('assets/new_logo.png', fit: BoxFit.contain),
             ),
           ),
           const SizedBox(width: 10),

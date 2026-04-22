@@ -18,6 +18,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
   List<Map<String, dynamic>> _approvedQuotes = [];
   List<Map<String, dynamic>> _mdeList = [];
   List<Map<String, dynamic>> _tokens = [];
+  List<Map<String, dynamic>> _archivedTokens = [];
   bool _loading = true;
   String? _selectedMdeId;
   String? _selectedQuoteFileName;
@@ -32,7 +33,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _load();
   }
 
@@ -51,10 +52,12 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
         .toList();
     final mdes = await SupabaseService.getMdeList();
     final tokens = await SupabaseService.getAllTokens();
+    final archivedTokens = await SupabaseService.getArchivedTokens();
     setState(() {
       _approvedQuotes = approved;
       _mdeList = mdes;
       _tokens = tokens;
+      _archivedTokens = archivedTokens;
       _loading = false;
     });
   }
@@ -94,12 +97,53 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
     }
   }
 
-  Future<void> _deleteToken(String tokenId) async {
+  Future<void> _archiveToken(String tokenId) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Token'),
-        content: const Text('Delete this assignment token?'),
+        title: const Text('Archive Token'),
+        content: const Text('Archive this assignment token? You can restore it later from the Archive tab.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Archive'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      try {
+        await SupabaseService.archiveToken(tokenId);
+        _filesCache.clear();
+        _load();
+        _snack('Token archived successfully');
+      } catch (e) {
+        _snack('Error: $e');
+      }
+    }
+  }
+
+  Future<void> _unarchiveToken(String tokenId) async {
+    try {
+      await SupabaseService.unarchiveToken(tokenId);
+      _load();
+      _snack('Token restored successfully');
+    } catch (e) {
+      _snack('Error: $e');
+    }
+  }
+
+  Future<void> _permanentlyDeleteToken(String tokenId) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Permanently Delete'),
+        content: const Text('This will permanently delete the token and ALL associated files. This action cannot be undone!'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -108,15 +152,19 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
             style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: const Text('Delete Forever'),
           ),
         ],
       ),
     );
     if (ok == true) {
-      await SupabaseService.deleteToken(tokenId);
-      _filesCache.clear();
-      _load();
+      try {
+        await SupabaseService.permanentlyDeleteToken(tokenId);
+        _load();
+        _snack('Token and files permanently deleted');
+      } catch (e) {
+        _snack('Error: $e');
+      }
     }
   }
 
@@ -164,6 +212,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
           tabs: const [
             Tab(icon: Icon(Icons.assignment_rounded), text: 'Assign'),
             Tab(icon: Icon(Icons.folder_special_rounded), text: 'View Files'),
+            Tab(icon: Icon(Icons.archive_rounded), text: 'Archive'),
           ],
         ),
       ),
@@ -174,6 +223,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
               children: [
                 _buildAssignTab(),
                 _buildViewFilesTab(),
+                _buildArchiveTab(),
               ],
             ),
     );
@@ -386,13 +436,140 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
               ),
               const SizedBox(width: 4),
               IconButton(
-                icon: Icon(Icons.delete_outline_rounded, color: Colors.red.shade400, size: 20),
-                onPressed: () => _deleteToken(t['id'] as String),
+                icon: Icon(Icons.archive_rounded, color: Colors.orange.shade600, size: 20),
+                onPressed: () => _archiveToken(t['id'] as String),
+                tooltip: 'Archive Token',
               ),
             ]),
           );
         }),
     ]);
+  }
+
+  // ── Archive Tab ─────────────────────────────────────────────────────────────────
+
+  Widget _buildArchiveTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    if (_archivedTokens.isEmpty) {
+      return Center(
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.archive_rounded, size: 56, color: Colors.grey.shade400),
+          const SizedBox(height: 12),
+          Text('No archived tokens',
+              style: TextStyle(color: Colors.grey.shade500)),
+          const SizedBox(height: 8),
+          Text('Archived tokens will appear here',
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+        ]),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.archive_rounded, color: Colors.orange.shade600),
+          const SizedBox(width: 8),
+          const Text('Archived Tokens',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          const Spacer(),
+          Text('${_archivedTokens.length} archived',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+        ]),
+        const SizedBox(height: 16),
+        ..._archivedTokens.map((t) {
+          final status = t['status'] as String;
+          final mdeName = (t['assigned_profile'] as Map?)?['name'] ?? 'Unknown';
+          final archivedAt = t['archived_at'] as String?;
+          final archivedDate = archivedAt != null 
+              ? DateTime.parse(archivedAt)
+              : DateTime.now();
+          final formattedDate = '${archivedDate.day}/${archivedDate.month}/${archivedDate.year}';
+          
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
+            ),
+            child: Column(children: [
+              Row(children: [
+                Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.archive_rounded,
+                    color: Colors.orange,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(t['project_name'] as String,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  const SizedBox(height: 3),
+                  Text('Designer: $mdeName',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  Text('Archived: $formattedDate',
+                      style: TextStyle(fontSize: 11, color: Colors.orange.shade600)),
+                ])),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '📦 Archived',
+                    style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w600,
+                      color: Colors.orange.shade800,
+                    ),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.restore_rounded, size: 16),
+                    label: const Text('Restore', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E7D32),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => _unarchiveToken(t['id'] as String),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.delete_forever_rounded, size: 16),
+                    label: const Text('Delete Forever', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    onPressed: () => _permanentlyDeleteToken(t['id'] as String),
+                  ),
+                ),
+              ]),
+            ]),
+          );
+        }),
+      ]),
+    );
   }
 
   // ── View Files Tab ─────────────────────────────────────────

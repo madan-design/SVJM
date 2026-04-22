@@ -9,7 +9,7 @@ class PdfService {
     final pdf = pw.Document();
 
     // Load assets
-    final logoImage = await rootBundle.load('assets/logo.png');
+    final logoImage = await rootBundle.load('assets/new_logo.png');
     final logo = pw.MemoryImage(logoImage.buffer.asUint8List());
     
     final bgImage = await rootBundle.load('assets/bg.png');

@@ -33,21 +33,48 @@ class SupabaseService {
   }
 
   static Future<List<Map<String, dynamic>>> getAllTokens() async {
-    final data = await _db
-        .from('tokens')
-        .select('*, assigned_profile:profiles!tokens_assigned_to_fkey(name)')
-        .order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(data);
+    try {
+      final data = await _db
+          .from('tokens')
+          .select('*, assigned_profile:profiles!tokens_assigned_to_fkey(name)')
+          .eq('archived', false)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(data);
+    } catch (e) {
+      print('Archived column not available, fetching all tokens: $e');
+      // Fallback: get all tokens if archived column doesn't exist
+      final data = await _db
+          .from('tokens')
+          .select('*, assigned_profile:profiles!tokens_assigned_to_fkey(name)')
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(data);
+    }
   }
 
   static Future<List<Map<String, dynamic>>> getMyTokens() async {
     final uid = AuthService.currentUser!.id;
-    final data = await _db
-        .from('tokens')
-        .select()
-        .eq('assigned_to', uid)
-        .order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(data);
+    try {
+      final data = await _db
+          .from('tokens')
+          .select()
+          .eq('assigned_to', uid)
+          .eq('archived', false)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(data);
+    } catch (e) {
+      print('Archived column not available for getMyTokens, fetching all and filtering: $e');
+      // Fallback: get all tokens and filter out archived ones manually
+      final data = await _db
+          .from('tokens')
+          .select()
+          .eq('assigned_to', uid)
+          .order('created_at', ascending: false);
+      // Filter out archived tokens manually if archived column exists in data
+      final filteredData = List<Map<String, dynamic>>.from(data)
+          .where((token) => token['archived'] != true)
+          .toList();
+      return filteredData;
+    }
   }
 
   static Future<void> markTokenCompleted(String tokenId) async {
@@ -59,6 +86,70 @@ class SupabaseService {
 
   static Future<void> deleteToken(String tokenId) async {
     await _db.from('tokens').delete().eq('id', tokenId);
+  }
+
+  // Archive a token (soft delete — marks as archived in DB)
+  static Future<void> archiveToken(String tokenId) async {
+    try {
+      await _db.from('tokens').update({
+        'archived': true,
+        'archived_at': DateTime.now().toIso8601String(),
+      }).eq('id', tokenId);
+      print('Token archived successfully');
+    } catch (e) {
+      print('Archive column not available for tokens: $e');
+      throw Exception('Archive functionality not available. Please contact administrator to update database schema.');
+    }
+  }
+
+  // Unarchive a token
+  static Future<void> unarchiveToken(String tokenId) async {
+    try {
+      await _db.from('tokens').update({'archived': false}).eq('id', tokenId);
+    } catch (e) {
+      print('Error unarchiving token: $e');
+      throw Exception('Unarchive functionality not available: $e');
+    }
+  }
+
+  // Get archived tokens
+  static Future<List<Map<String, dynamic>>> getArchivedTokens() async {
+    try {
+      final data = await _db
+          .from('tokens')
+          .select('*, assigned_profile:profiles!tokens_assigned_to_fkey(name)')
+          .eq('archived', true)
+          .order('archived_at', ascending: false);
+      return List<Map<String, dynamic>>.from(data);
+    } catch (e) {
+      print('Error getting archived tokens (archived column may not exist): $e');
+      return [];
+    }
+  }
+
+  // Permanently delete a token and all its files
+  static Future<void> permanentlyDeleteToken(String tokenId) async {
+    try {
+      // Get all files for this token first
+      final files = await getFilesForToken(tokenId);
+      
+      // Delete all files from storage
+      final filePaths = files.map((f) => f['file_path'] as String).toList();
+      if (filePaths.isNotEmpty) {
+        await _storage.from('project-files').remove(filePaths);
+      }
+      
+      // Delete all file records from database
+      await _db.from('token_files').delete().eq('token_id', tokenId);
+      
+      // Finally delete the token itself
+      await _db.from('tokens').delete().eq('id', tokenId);
+      
+      print('Token and all associated files permanently deleted');
+    } catch (e) {
+      print('Error permanently deleting token: $e');
+      throw Exception('Failed to permanently delete token: $e');
+    }
   }
 
   // ── Files ─────────────────────────────────────────────────

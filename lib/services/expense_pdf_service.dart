@@ -19,7 +19,7 @@ class ExpensePdfService {
     final timesBold = await rootBundle.load('assets/fonts/timesbd.ttf');
     final ttfBold = pw.Font.ttf(timesBold);
 
-    final logoImage = await rootBundle.load('assets/logo.png');
+    final logoImage = await rootBundle.load('assets/new_logo.png');
     final logo = pw.MemoryImage(logoImage.buffer.asUint8List());
 
     final spent = ProjectService.totalSpent(expenses);

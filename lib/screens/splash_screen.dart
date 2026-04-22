@@ -70,13 +70,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset('assets/app_logo.png', fit: BoxFit.none,
-                  filterQuality: FilterQuality.high, isAntiAlias: true),
+              Image.asset('assets/new_logo.png', 
+                  fit: BoxFit.contain,
+                  filterQuality: FilterQuality.high, 
+                  isAntiAlias: true),
               const SizedBox(height: 16),
               Text(_version,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                     letterSpacing: 1.2,
                   )),
             ],

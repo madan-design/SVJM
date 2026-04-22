@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
-import 'admin/admin_home_screen.dart';
-import 'mde/mde_home_screen.dart';
+import 'auth_wrapper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -38,10 +37,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     setState(() => _loading = false);
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => role == 'admin' ? const AdminHomeScreen() : const MdeHomeScreen(),
-      ),
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AuthWrapper()),
+      (route) => false,
     );
   }
 
@@ -83,7 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 16, offset: const Offset(0, 6))],
                     ),
                     child: Center(
-                      child: Image.asset('assets/app_logo.png', width: 64, height: 64, fit: BoxFit.contain),
+                      child: Image.asset('assets/new_logo.png', fit: BoxFit.contain),
                     ),
                   ),
                   const SizedBox(height: 20),
