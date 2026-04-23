@@ -100,6 +100,18 @@ class StorageService {
     return (rows as List).map((r) => _rowToQuote(r as Map<String, dynamic>)).toList();
   }
 
+  // ── Get draft quotes only ─────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getDraftQuotes() async {
+    final rows = await _db
+        .from('quotes')
+        .select()
+        .eq('owner_id', _uid)
+        .eq('status', 'draft')
+        .order('created_at', ascending: false);
+    return (rows as List).map((r) => _rowToQuote(r as Map<String, dynamic>)).toList();
+  }
+
   // ── Read PDF bytes (download from storage) ─────────────────
 
   static Future<List<int>> readPdfBytes(String pdfPath) async {

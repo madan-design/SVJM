@@ -73,7 +73,7 @@ class WebDragDropHandler {
       event.preventDefault();
       onDragLeave();
       
-      final dragEvent = event as html.Event;
+      final dragEvent = event;
       final dataTransfer = (dragEvent as dynamic).dataTransfer;
       final files = dataTransfer?.files;
       

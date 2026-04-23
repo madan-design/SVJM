@@ -253,7 +253,7 @@ class PdfService {
                               ),
                           ],
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
 

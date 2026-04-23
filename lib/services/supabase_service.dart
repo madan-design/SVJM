@@ -152,6 +152,208 @@ class SupabaseService {
     }
   }
 
+  // ── Legacy Folders ────────────────────────────────────────
+
+  static Future<void> createLegacyFolder({
+    required String folderName,
+    required int year,
+    required int month,
+  }) async {
+    final uid = AuthService.currentUser!.id;
+    
+    try {
+      // Check if folder already exists for this user
+      final existing = await _db
+          .from('legacy_folders')
+          .select('id')
+          .eq('folder_name', folderName)
+          .eq('year', year)
+          .eq('month', month)
+          .eq('created_by', uid)
+          .maybeSingle();
+      
+      if (existing != null) {
+        throw Exception('A folder with this name already exists for $year/$month');
+      }
+      
+      await _db.from('legacy_folders').insert({
+        'folder_name': folderName,
+        'year': year,
+        'month': month,
+        'created_by': uid,
+        'status': 'draft',
+      });
+    } catch (e) {
+      print('Error creating legacy folder: $e');
+      throw Exception('Failed to create legacy folder: $e');
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getMyLegacyFolders() async {
+    final uid = AuthService.currentUser!.id;
+    final data = await _db
+        .from('legacy_folders')
+        .select()
+        .eq('created_by', uid)
+        .inFilter('status', ['draft', 'completed'])
+        .not('folder_name', 'like', '%_DELETED_%')  // Exclude deleted folders
+        .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  static Future<List<Map<String, dynamic>>> getAllLegacyFolders() async {
+    final data = await _db
+        .from('legacy_folders')
+        .select('*, created_profile:profiles!legacy_folders_created_by_fkey(name)')
+        .eq('status', 'completed')
+        .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  static Future<void> markLegacyFolderCompleted(String folderId) async {
+    await _db.from('legacy_folders').update({
+      'status': 'completed',
+      'completed_at': DateTime.now().toIso8601String(),
+    }).eq('id', folderId);
+  }
+
+  static Future<void> uploadLegacyFile({
+    required String folderId,
+    required String fileName,
+    required Uint8List bytes,
+    required String mimeType,
+  }) async {
+    final uid = AuthService.currentUser!.id;
+    final path = 'legacy/$folderId/$fileName';
+
+    await _storage.from('project-files').uploadBinary(
+      path,
+      bytes,
+      fileOptions: FileOptions(contentType: mimeType, upsert: true),
+    );
+
+    await _db.from('token_files').insert({
+      'legacy_folder_id': folderId,
+      'uploaded_by': uid,
+      'file_name': fileName,
+      'file_path': path,
+      'file_size': bytes.length,
+      'mime_type': mimeType,
+      // Set token_id to null explicitly since it's not needed for legacy files
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getFilesForLegacyFolder(String folderId) async {
+    final data = await _db
+        .from('token_files')
+        .select()
+        .eq('legacy_folder_id', folderId)
+        .order('uploaded_at', ascending: false);
+    return List<Map<String, dynamic>>.from(data);
+  }
+
+  static Future<void> deleteLegacyFile(String fileId, String filePath) async {
+    try {
+      await _storage.from('project-files').remove([filePath]);
+      await _db.from('token_files').delete().eq('id', fileId);
+    } catch (e) {
+      print('Error deleting legacy file: $e');
+      try {
+        await _db.from('token_files').delete().eq('id', fileId);
+      } catch (e2) {
+        print('Error deleting from database: $e2');
+      }
+      throw Exception('Failed to delete file: $e');
+    }
+  }
+
+  static Future<void> archiveLegacyFolder(String folderId) async {
+    final uid = AuthService.currentUser!.id;
+    await _db.from('legacy_folders').update({
+      'status': 'archived',
+      'archived_at': DateTime.now().toIso8601String(),
+      'archived_by': uid,
+    }).eq('id', folderId);
+  }
+
+  static Future<void> unarchiveLegacyFolder(String folderId) async {
+    await _db.from('legacy_folders').update({
+      'status': 'draft',
+      'archived_at': null,
+      'archived_by': null,
+    }).eq('id', folderId);
+  }
+
+  static Future<List<Map<String, dynamic>>> getArchivedLegacyFolders() async {
+    try {
+      final uid = AuthService.currentUser!.id;
+      print('Fetching archived legacy folders for user: $uid');
+      
+      final data = await _db
+          .from('legacy_folders')
+          .select()
+          .eq('created_by', uid)
+          .eq('status', 'archived')
+          .not('folder_name', 'like', '%_DELETED_%')  // Exclude deleted folders
+          .order('archived_at', ascending: false);
+      
+      print('Found ${data.length} archived legacy folders (excluding deleted)');
+      return List<Map<String, dynamic>>.from(data);
+    } catch (e) {
+      print('Error getting archived legacy folders: $e');
+      return [];
+    }
+  }
+
+  static Future<void> permanentlyDeleteLegacyFolder(String folderId) async {
+    try {
+      // Mark folder as deleted by renaming it
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      await _db
+          .from('legacy_folders')
+          .update({
+            'folder_name': 'DELETED_${timestamp}_$folderId',
+            'status': 'draft' // Keep as draft since RLS blocks 'deleted'
+          })
+          .eq('id', folderId);
+    } catch (e) {
+      print('Error marking folder for deletion: $e');
+      throw Exception('Failed to delete legacy folder: $e');
+    }
+  }
+
+  // Cleanup deleted folders from database (admin only)
+  static Future<bool> cleanupDeletedFolders() async {
+    try {
+      // Get all marked-for-deletion folders
+      final foldersResponse = await _db
+          .from('legacy_folders')
+          .select('id')
+          .like('folder_name', '%DELETED_%');
+      
+      if (foldersResponse.isEmpty) return true;
+      
+      final folderIds = foldersResponse.map((f) => f['id']).toList();
+      
+      // Delete associated files first
+      await _db
+          .from('token_files')
+          .delete()
+          .inFilter('legacy_folder_id', folderIds);
+      
+      // Delete folders
+      await _db
+          .from('legacy_folders')
+          .delete()
+          .inFilter('id', folderIds);
+      
+      return true;
+    } catch (e) {
+      print('Error cleaning up deleted folders: $e');
+      return false;
+    }
+  }
+
   // ── Files ─────────────────────────────────────────────────
 
   static Future<void> uploadFile({
@@ -290,8 +492,24 @@ class SupabaseService {
 
   // Permanently delete a file from archive
   static Future<void> permanentlyDeleteFile(String fileId, String filePath) async {
-    await _storage.from('project-files').remove([filePath]);
-    await _db.from('token_files').delete().eq('id', fileId);
+    try {
+      print('Starting permanent deletion of file: $fileId at path: $filePath');
+      
+      // Delete from storage first
+      print('Deleting file from storage: $filePath');
+      await _storage.from('project-files').remove([filePath]);
+      print('File deleted from storage successfully');
+      
+      // Delete from database
+      print('Deleting file record from database: $fileId');
+      await _db.from('token_files').delete().eq('id', fileId);
+      print('File record deleted from database successfully');
+      
+      print('File $fileId permanently deleted successfully');
+    } catch (e) {
+      print('Error permanently deleting file: $e');
+      throw Exception('Failed to permanently delete file: $e');
+    }
   }
 
   // Get all archived files for current user
@@ -327,55 +545,283 @@ class SupabaseService {
     }
   }
 
-  // Get files grouped by designer, year, and token with project counts (including archived)
-  static Future<Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>> getFilesGroupedByDesignerYearAndToken() async {
+  // Simplified method to get just token files for debugging
+  static Future<List<Map<String, dynamic>>> getSimpleTokenFiles() async {
     try {
-      final data = await _db
+      print('Getting simple token files...');
+      
+      // Get all token files that are linked to tokens (not legacy)
+      final files = await _db
           .from('token_files')
-          .select('*, tokens!inner(id, project_name, status, archived, assigned_to, assigned_profile:profiles!tokens_assigned_to_fkey(name))')
-          .eq('archived', false) // Only non-archived files
+          .select('*')
+          .not('token_id', 'is', null)
           .order('uploaded_at', ascending: false);
       
-      final Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>> grouped = {};
+      print('Found ${files.length} token files');
       
-      for (final file in data) {
-        final token = file['tokens'] as Map<String, dynamic>;
-        final profile = token['assigned_profile'] as Map<String, dynamic>?;
-        final designerName = profile?['name'] as String? ?? 'Unknown Designer';
-        final tokenId = token['id'] as String;
-        final projectName = token['project_name'] as String;
-        final isTokenArchived = token['archived'] as bool? ?? false;
-        
-        final uploadedAt = DateTime.parse(file['uploaded_at'] as String);
-        final year = uploadedAt.year.toString();
-        
-        // Create nested structure: Designer -> Year -> Token/Project -> Files
-        if (!grouped.containsKey(designerName)) {
-          grouped[designerName] = {};
+      // Get token and profile info separately for each file
+      final enrichedFiles = <Map<String, dynamic>>[];
+      
+      for (final file in files) {
+        try {
+          final tokenId = file['token_id'] as String;
+          
+          // Get token info
+          final token = await _db
+              .from('tokens')
+              .select('id, project_name, status, assigned_to')
+              .eq('id', tokenId)
+              .single();
+          
+          // Get profile info
+          final profile = await _db
+              .from('profiles')
+              .select('name')
+              .eq('id', token['assigned_to'])
+              .single();
+          
+          enrichedFiles.add({
+            ...file,
+            'token_info': token,
+            'designer_name': profile['name'],
+          });
+        } catch (e) {
+          print('Error enriching file ${file['id']}: $e');
         }
-        if (!grouped[designerName]!.containsKey(year)) {
-          grouped[designerName]![year] = {};
-        }
-        if (!grouped[designerName]![year]!.containsKey(tokenId)) {
-          grouped[designerName]![year]![tokenId] = [];
-        }
-        
-        // Add file with timestamp and project info
-        grouped[designerName]![year]![tokenId]!.add({
-          ...file,
-          'project_name': projectName,
-          'token_status': token['status'],
-          'token_archived': isTokenArchived,
-          'formatted_date': _formatTimestamp(uploadedAt),
-          'folder_timestamp': _formatFolderTimestamp(uploadedAt),
-        });
       }
       
+      print('Enriched ${enrichedFiles.length} files');
+      return enrichedFiles;
+    } catch (e) {
+      print('Error getting simple token files: $e');
+      return [];
+    }
+  }
+  static Future<void> testFileQueries() async {
+    try {
+      print('=== Testing File Queries ===');
+      
+      // Test 1: Check if token_files table has data
+      final allFiles = await _db.from('token_files').select('count').count();
+      print('Total files in token_files: $allFiles');
+      
+      // Test 2: Check if tokens table has data
+      final allTokens = await _db.from('tokens').select('count').count();
+      print('Total tokens: $allTokens');
+      
+      // Test 3: Simple token_files query
+      final simpleFiles = await _db
+          .from('token_files')
+          .select('id, file_name, token_id, legacy_folder_id')
+          .limit(5);
+      print('Sample files: ${simpleFiles.length}');
+      for (final file in simpleFiles) {
+        print('  File: ${file['file_name']}, Token: ${file['token_id']}, Legacy: ${file['legacy_folder_id']}');
+      }
+      
+      // Test 4: Simple tokens query
+      final simpleTokens = await _db
+          .from('tokens')
+          .select('id, project_name, assigned_to')
+          .limit(5);
+      print('Sample tokens: ${simpleTokens.length}');
+      for (final token in simpleTokens) {
+        print('  Token: ${token['project_name']}, Assigned to: ${token['assigned_to']}');
+      }
+      
+      // Test 5: Try the join query
+      try {
+        final joinedFiles = await _db
+            .from('token_files')
+            .select('*, tokens(id, project_name, assigned_to)')
+            .isFilter('legacy_folder_id', null)
+            .limit(3);
+        print('Joined files: ${joinedFiles.length}');
+        for (final file in joinedFiles) {
+          print('  File: ${file['file_name']}, Token data: ${file['tokens']}');
+        }
+      } catch (e) {
+        print('Join query failed: $e');
+      }
+      
+      print('=== End Test ===');
+    } catch (e) {
+      print('Test failed: $e');
+    }
+  }
+
+  // Get files grouped by designer, year, month, and token with project counts (including archived and legacy)
+  static Future<Map<String, Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>>> getFilesGroupedByDesignerYearMonthAndToken() async {
+    try {
+      print('Starting to fetch grouped files...');
+      
+      // Get regular token files - try with archived filter first, fallback without it
+      List<Map<String, dynamic>> tokenFiles = [];
+      try {
+        print('Fetching token files with archived filter...');
+        tokenFiles = await _db
+            .from('token_files')
+            .select('*, tokens!inner(id, project_name, status, assigned_to, archived, assigned_profile:profiles!tokens_assigned_to_fkey(name))')
+            .eq('archived', false)
+            .isFilter('legacy_folder_id', null)
+            .order('uploaded_at', ascending: false);
+        print('Found ${tokenFiles.length} token files with archived filter');
+      } catch (e) {
+        print('Archived column not available in token_files, fetching all files: $e');
+        try {
+          // Fallback: get all files without archived filter but include token archived status
+          tokenFiles = await _db
+              .from('token_files')
+              .select('*, tokens!inner(id, project_name, status, assigned_to, archived, assigned_profile:profiles!tokens_assigned_to_fkey(name))')
+              .isFilter('legacy_folder_id', null)
+              .order('uploaded_at', ascending: false);
+          print('Found ${tokenFiles.length} token files without archived filter');
+        } catch (e2) {
+          print('Error fetching token files: $e2');
+          tokenFiles = [];
+        }
+      }
+      
+      // Get legacy files - simplified query without foreign key join
+      List<Map<String, dynamic>> legacyFiles = [];
+      try {
+        print('Fetching legacy files...');
+        legacyFiles = await _db
+            .from('token_files')
+            .select('*, legacy_folders!inner(id, folder_name, year, month, status, created_by)')
+            .not('legacy_folder_id', 'is', null)
+            .not('legacy_folders.folder_name', 'like', '%_DELETED_%')  // Exclude deleted folders
+            .order('uploaded_at', ascending: false);
+        print('Found ${legacyFiles.length} legacy files');
+      } catch (e) {
+        print('Error fetching legacy files: $e');
+        legacyFiles = [];
+      }
+      
+      final Map<String, Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>> grouped = {};
+      
+      // Process regular token files
+      print('Processing ${tokenFiles.length} token files...');
+      for (final file in tokenFiles) {
+        try {
+          final token = file['tokens'] as Map<String, dynamic>;
+          final profile = token['assigned_profile'] as Map<String, dynamic>?;
+          final designerName = profile?['name'] as String? ?? 'Unknown Designer';
+          final tokenId = token['id'] as String;
+          final projectName = token['project_name'] as String;
+          final isTokenArchived = token['archived'] as bool? ?? false;
+          
+          final uploadedAt = DateTime.parse(file['uploaded_at'] as String);
+          final year = uploadedAt.year.toString();
+          final month = _getMonthName(uploadedAt.month);
+          
+          _addToGroupedStructureWithMonth(grouped, designerName, year, month, tokenId, {
+            ...file,
+            'project_name': projectName,
+            'token_status': token['status'],
+            'token_archived': isTokenArchived,
+            'formatted_date': _formatTimestamp(uploadedAt),
+            'folder_timestamp': _formatFolderTimestamp(uploadedAt),
+            'is_legacy': false,
+          });
+        } catch (e) {
+          print('Error processing token file: $e');
+        }
+      }
+      
+      // Process legacy files - get all designer names in one query
+      if (legacyFiles.isNotEmpty) {
+        print('Processing ${legacyFiles.length} legacy files...');
+        // Get all unique creator IDs
+        final creatorIds = legacyFiles
+            .map((file) => (file['legacy_folders'] as Map<String, dynamic>)['created_by'] as String)
+            .toSet()
+            .toList();
+        
+        // Fetch all profiles at once
+        Map<String, String> creatorNames = {};
+        try {
+          final profiles = await _db
+              .from('profiles')
+              .select('id, name')
+              .inFilter('id', creatorIds);
+          
+          for (final profile in profiles) {
+            creatorNames[profile['id'] as String] = profile['name'] as String;
+          }
+          print('Fetched ${creatorNames.length} creator profiles');
+        } catch (e) {
+          print('Error fetching profiles: $e');
+        }
+        
+        // Process legacy files with cached names
+        for (final file in legacyFiles) {
+          try {
+            final legacyFolder = file['legacy_folders'] as Map<String, dynamic>;
+            final createdBy = legacyFolder['created_by'] as String;
+            final designerName = creatorNames[createdBy] ?? 'Unknown Designer';
+            
+            final folderId = legacyFolder['id'] as String;
+            final folderName = legacyFolder['folder_name'] as String;
+            final year = legacyFolder['year'].toString();
+            final month = _getMonthName(legacyFolder['month'] as int);
+            
+            final uploadedAt = DateTime.parse(file['uploaded_at'] as String);
+            
+            _addToGroupedStructureWithMonth(grouped, designerName, year, month, folderId, {
+              ...file,
+              'project_name': folderName,
+              'token_status': legacyFolder['status'],
+              'token_archived': false,
+              'formatted_date': _formatTimestamp(uploadedAt),
+              'folder_timestamp': _formatFolderTimestamp(uploadedAt),
+              'is_legacy': true,
+              'legacy_badge': true,
+            });
+          } catch (e) {
+            print('Error processing legacy file: $e');
+          }
+        }
+      }
+      
+      print('Grouped files by ${grouped.keys.length} designers');
       return grouped;
     } catch (e) {
       print('Error getting grouped files: $e');
       return {};
     }
+  }
+  
+  static void _addToGroupedStructureWithMonth(
+    Map<String, Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>> grouped,
+    String designerName,
+    String year,
+    String month,
+    String tokenId,
+    Map<String, dynamic> fileData,
+  ) {
+    if (!grouped.containsKey(designerName)) {
+      grouped[designerName] = {};
+    }
+    if (!grouped[designerName]!.containsKey(year)) {
+      grouped[designerName]![year] = {};
+    }
+    if (!grouped[designerName]![year]!.containsKey(month)) {
+      grouped[designerName]![year]![month] = {};
+    }
+    if (!grouped[designerName]![year]![month]!.containsKey(tokenId)) {
+      grouped[designerName]![year]![month]![tokenId] = [];
+    }
+    
+    grouped[designerName]![year]![month]![tokenId]!.add(fileData);
+  }
+  
+  static String _getMonthName(int month) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return months[month - 1];
   }
   
   static String _formatFolderTimestamp(DateTime dateTime) {
@@ -386,9 +832,10 @@ class SupabaseService {
     return '$month $day';
   }
   
-  // Get project counts for a designer
+  // Get project counts for a designer including legacy files
   static Future<Map<String, int>> getDesignerProjectCounts(String designerId) async {
     try {
+      // Get regular token counts
       final data = await _db
           .from('tokens')
           .select('status')
@@ -407,13 +854,27 @@ class SupabaseService {
         }
       }
       
+      // Get legacy files count
+      int legacyFiles = 0;
+      try {
+        final legacyData = await _db
+            .from('legacy_folders')
+            .select('id')
+            .eq('created_by', designerId)
+            .not('folder_name', 'like', '%_DELETED_%');
+        legacyFiles = legacyData.length;
+      } catch (e) {
+        print('Error getting legacy files count: $e');
+      }
+      
       return {
         'assigned': assigned,
         'completed': completed,
+        'legacy': legacyFiles,
       };
     } catch (e) {
       print('Error getting designer project counts: $e');
-      return {'assigned': 0, 'completed': 0};
+      return {'assigned': 0, 'completed': 0, 'legacy': 0};
     }
   }
   

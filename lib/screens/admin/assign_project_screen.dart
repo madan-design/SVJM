@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/storage_service.dart';
 import '../../services/supabase_service.dart';
-import '../../widgets/app_shell.dart';
 
 class AssignProjectScreen extends StatefulWidget {
   const AssignProjectScreen({super.key});
@@ -27,7 +26,6 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
   bool _submitting = false;
 
   // ── View Files tab state ───────────────────────────────────
-  int _expandedIndex = -1;
   final Map<String, List<Map<String, dynamic>>> _filesCache = {};
 
   @override
@@ -169,13 +167,6 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
   }
 
   // ── View Files logic ───────────────────────────────────────
-
-  Future<List<Map<String, dynamic>>> _getFiles(String tokenId) async {
-    if (_filesCache.containsKey(tokenId)) return _filesCache[tokenId]!;
-    final files = await SupabaseService.getFilesForToken(tokenId);
-    _filesCache[tokenId] = files;
-    return files;
-  }
 
   Future<void> _viewFile(String filePath, String fileName) async {
     try {
@@ -442,25 +433,30 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
   }
 
   Widget _buildModernTokenGrid(bool isDark) {
+    // Split tokens into active and completed
+    final activeTokens = _tokens.where((t) => t['status'] != 'completed').toList();
+    final completedTokens = _tokens.where((t) => t['status'] == 'completed').toList();
+    
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Active Tokens Section
       Row(children: [
         Container(
           width: 32, height: 32,
           decoration: BoxDecoration(
-            color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+            color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Icon(Icons.token_rounded, color: Color(0xFF8B5CF6), size: 16),
+          child: const Icon(Icons.schedule_rounded, color: Color(0xFFF59E0B), size: 16),
         ),
         const SizedBox(width: 12),
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Active Assignments', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-          Text('${_tokens.length} tokens created', 
+          Text('${activeTokens.length} active tokens', 
               style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
         ]),
       ]),
       const SizedBox(height: 20),
-      if (_tokens.isEmpty)
+      if (activeTokens.isEmpty)
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(32),
@@ -474,7 +470,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
           child: Column(children: [
             Icon(Icons.assignment_outlined, size: 48, color: Colors.grey.shade400),
             const SizedBox(height: 12),
-            Text('No assignments yet', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+            Text('No active assignments', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
             const SizedBox(height: 4),
             Text('Create your first assignment above', 
                 style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
@@ -490,26 +486,59 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
             crossAxisSpacing: 16,
             mainAxisSpacing: 12,
           ),
-          itemCount: _tokens.length,
+          itemCount: activeTokens.length,
           itemBuilder: (context, index) {
-            final token = _tokens[index];
+            final token = activeTokens[index];
             return _buildModernTokenCard(token, isDark);
           },
         ),
+      
+      // Completed Tokens Section
+      if (completedTokens.isNotEmpty) ...[
+        const SizedBox(height: 40),
+        Row(children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 16),
+          ),
+          const SizedBox(width: 12),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Completed Assignments', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            Text('${completedTokens.length} completed tokens', 
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          ]),
+        ]),
+        const SizedBox(height: 20),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: MediaQuery.of(context).size.width > 1200 ? 2 : 1,
+            childAspectRatio: 3.5,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 12,
+          ),
+          itemCount: completedTokens.length,
+          itemBuilder: (context, index) {
+            final token = completedTokens[index];
+            return _buildModernTokenCard(token, isDark);
+          },
+        ),
+      ],
     ]);
   }
 
   Widget _buildModernTokenCard(Map<String, dynamic> token, bool isDark) {
-    final status = token['status'] as String;
     final mdeName = (token['assigned_profile'] as Map?)?['name'] ?? 'Unknown';
-    final isCompleted = status == 'completed';
+    final isCompleted = token['status'] == 'completed';
     
     return InkWell(
       onTap: () {
         _tabController.animateTo(1);
-        setState(() {
-          _expandedIndex = _tokens.indexOf(token);
-        });
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -623,137 +652,19 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
 
   // ── Archive Tab ─────────────────────────────────────────────────────────────────
 
-  Widget _buildArchiveTab() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    if (_archivedTokens.isEmpty) {
-      return Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.archive_rounded, size: 56, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          Text('No archived tokens',
-              style: TextStyle(color: Colors.grey.shade500)),
-          const SizedBox(height: 8),
-          Text('Archived tokens will appear here',
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
-        ]),
-      );
-    }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(Icons.archive_rounded, color: Colors.orange.shade600),
-          const SizedBox(width: 8),
-          const Text('Archived Tokens',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-          const Spacer(),
-          Text('${_archivedTokens.length} archived',
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-        ]),
-        const SizedBox(height: 16),
-        ..._archivedTokens.map((t) {
-          final status = t['status'] as String;
-          final mdeName = (t['assigned_profile'] as Map?)?['name'] ?? 'Unknown';
-          final archivedAt = t['archived_at'] as String?;
-          final archivedDate = archivedAt != null 
-              ? DateTime.parse(archivedAt)
-              : DateTime.now();
-          final formattedDate = '${archivedDate.day}/${archivedDate.month}/${archivedDate.year}';
-          
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF2A2A2A) : Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8)],
-            ),
-            child: Column(children: [
-              Row(children: [
-                Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.archive_rounded,
-                    color: Colors.orange,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(t['project_name'] as String,
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  const SizedBox(height: 3),
-                  Text('Designer: $mdeName',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                  Text('Archived: $formattedDate',
-                      style: TextStyle(fontSize: 11, color: Colors.orange.shade600)),
-                ])),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    '📦 Archived',
-                    style: TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w600,
-                      color: Colors.orange.shade800,
-                    ),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.restore_rounded, size: 16),
-                    label: const Text('Restore', style: TextStyle(fontSize: 12)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E7D32),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () => _unarchiveToken(t['id'] as String),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.delete_forever_rounded, size: 16),
-                    label: const Text('Delete Forever', style: TextStyle(fontSize: 12)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    onPressed: () => _permanentlyDeleteToken(t['id'] as String),
-                  ),
-                ),
-              ]),
-            ]),
-          );
-        }),
-      ]),
-    );
-  }
 
   // ── Modern View Files Tab ─────────────────────────────────────────
 
   Widget _buildModernViewFilesTab() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    return FutureBuilder<Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>>(
-      future: SupabaseService.getFilesGroupedByDesignerYearAndToken(),
+    return FutureBuilder(
+      future: () async {
+        // Run test queries first
+        await SupabaseService.testFileQueries();
+        return SupabaseService.getFilesGroupedByDesignerYearMonthAndToken();
+      }(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
@@ -806,9 +717,17 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
             
             // Get designer ID from first file to fetch project counts
             final firstYear = yearGroups.keys.first;
-            final firstToken = yearGroups[firstYear]!.keys.first;
-            final firstFile = yearGroups[firstYear]![firstToken]!.first;
-            final designerId = firstFile['tokens']['assigned_to'] as String;
+            final firstMonth = yearGroups[firstYear]!.keys.first;
+            final firstToken = yearGroups[firstYear]![firstMonth]!.keys.first;
+            final firstFile = yearGroups[firstYear]![firstMonth]![firstToken]!.first;
+            
+            // Handle both regular tokens and legacy folders
+            String designerId;
+            if (firstFile['is_legacy'] == true) {
+              designerId = (firstFile['legacy_folders'] as Map<String, dynamic>)['created_by'] as String;
+            } else {
+              designerId = (firstFile['tokens'] as Map<String, dynamic>)['assigned_to'] as String;
+            }
             
             return Container(
               margin: const EdgeInsets.only(bottom: 20),
@@ -829,9 +748,10 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
               child: FutureBuilder<Map<String, int>>(
                 future: SupabaseService.getDesignerProjectCounts(designerId),
                 builder: (context, countsSnapshot) {
-                  final counts = countsSnapshot.data ?? {'assigned': 0, 'completed': 0};
+                  final counts = countsSnapshot.data ?? {'assigned': 0, 'completed': 0, 'legacy': 0};
                   final assignedCount = counts['assigned'] ?? 0;
                   final completedCount = counts['completed'] ?? 0;
+                  final legacyCount = counts['legacy'] ?? 0;
                   
                   return ExpansionTile(
                     tilePadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -860,11 +780,16 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
                         _buildProjectBadge(assignedCount, 'assigned', const Color(0xFFF59E0B)),
                         const SizedBox(width: 8),
                         _buildProjectBadge(completedCount, 'completed', const Color(0xFF10B981)),
+                        const SizedBox(width: 8),
+                        _buildProjectBadge(legacyCount, 'legacy', const Color(0xFF9C27B0)),
                       ]),
                     ),
                     children: yearGroups.keys.map((year) {
-                      final tokenGroups = yearGroups[year]!;
-                      final projectCount = tokenGroups.keys.length;
+                      final monthGroups = yearGroups[year]!;
+                      final yearProjectCount = monthGroups.values
+                          .expand((monthData) => monthData.keys)
+                          .toSet()
+                          .length;
                       
                       return Container(
                         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -883,81 +808,199 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
                             child: const Icon(Icons.calendar_today, color: Color(0xFF8B5CF6), size: 16),
                           ),
                           title: Text(year, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                          subtitle: Text('$projectCount projects', 
+                          subtitle: Text('$yearProjectCount projects', 
                               style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                          children: tokenGroups.keys.map((tokenId) {
-                            final files = tokenGroups[tokenId]!;
-                            final projectName = files.first['project_name'] as String;
-                            final tokenStatus = files.first['token_status'] as String;
-                            final isTokenArchived = files.first['token_archived'] as bool? ?? false;
-                            final folderTimestamp = files.first['folder_timestamp'] as String;
+                          children: monthGroups.keys.map((month) {
+                            final tokenGroups = monthGroups[month]!;
+                            final monthProjectCount = tokenGroups.keys.length;
                             
                             return Container(
                               margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                               decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF0F0F0F) : Colors.white,
+                                color: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFFAFAFA),
                                 borderRadius: BorderRadius.circular(10),
-                                border: isTokenArchived ? Border.all(
-                                  color: const Color(0xFFEF4444).withValues(alpha: 0.3),
-                                  width: 1,
-                                ) : null,
                               ),
                               child: ExpansionTile(
                                 tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                 leading: Container(
                                   width: 28, height: 28,
                                   decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: tokenStatus == 'completed' 
-                                          ? [const Color(0xFF10B981), const Color(0xFF059669)]
-                                          : [const Color(0xFFF59E0B), const Color(0xFFD97706)],
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    borderRadius: BorderRadius.circular(7),
+                                    color: const Color(0xFF06B6D4).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: Icon(
-                                    tokenStatus == 'completed' 
-                                        ? Icons.check_circle_rounded 
-                                        : Icons.schedule_rounded,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
+                                  child: const Icon(Icons.date_range, color: Color(0xFF06B6D4), size: 14),
                                 ),
-                                title: Row(children: [
-                                  Expanded(
-                                    child: Text(
-                                      '$projectName • $folderTimestamp',
-                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  if (isTokenArchived) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                title: Text(month, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                subtitle: Text('$monthProjectCount projects', 
+                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                                children: tokenGroups.keys.map((tokenId) {
+                                  final files = tokenGroups[tokenId]!;
+                                  final projectName = files.first['project_name'] as String;
+                                  final tokenStatus = files.first['token_status'] as String;
+                                  final isTokenArchived = files.first['token_archived'] as bool? ?? false;
+                                  final folderTimestamp = files.first['folder_timestamp'] as String;
+                                  
+                                  return MouseRegion(
+                                    cursor: isTokenArchived ? SystemMouseCursors.forbidden : SystemMouseCursors.click,
+                                    child: Container(
+                                      width: double.infinity,
+                                      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFEF4444).withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(4),
+                                        color: isTokenArchived 
+                                            ? (isDark ? const Color(0xFF1A1A1A) : Colors.grey.shade100)
+                                            : (isDark ? const Color(0xFF0F0F0F) : Colors.white),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: isTokenArchived ? Border.all(
+                                          color: Colors.grey.shade400,
+                                          width: 1,
+                                        ) : null,
                                       ),
-                                      child: const Text(
-                                        'Archived',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w600,
-                                          color: Color(0xFFEF4444),
-                                        ),
-                                      ),
+                                      child: isTokenArchived 
+                                          ? Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                              child: Row(children: [
+                                                Container(
+                                                  width: 28, height: 28,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey.shade400,
+                                                    borderRadius: BorderRadius.circular(7),
+                                                  ),
+                                                  child: Icon(
+                                                    tokenStatus == 'completed' 
+                                                        ? Icons.check_circle_rounded 
+                                                        : Icons.schedule_rounded,
+                                                    color: Colors.grey.shade600,
+                                                    size: 14,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        '$projectName • $folderTimestamp',
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.w600, 
+                                                          fontSize: 13,
+                                                          color: Colors.grey.shade600,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        '${files.length} files • ${tokenStatus == 'completed' ? 'Completed' : 'Active'} (Archived)',
+                                                        style: TextStyle(
+                                                          fontSize: 11, 
+                                                          color: Colors.grey.shade500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                if (files.first['is_legacy'] == true) ...[
+                                                  const SizedBox(width: 8),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFF9C27B0).withValues(alpha: 0.1),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: const Text(
+                                                      'Legacy',
+                                                      style: TextStyle(
+                                                        fontSize: 9,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Color(0xFF9C27B0),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey.shade300,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    'Archived',
+                                                    style: TextStyle(
+                                                      fontSize: 9,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Colors.grey.shade700,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ]),
+                                            )
+                                          : ExpansionTile(
+                                              tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                              leading: Container(
+                                                width: 28, height: 28,
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    colors: tokenStatus == 'completed' 
+                                                        ? [const Color(0xFF10B981), const Color(0xFF059669)]
+                                                        : [const Color(0xFFF59E0B), const Color(0xFFD97706)],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
+                                                  borderRadius: BorderRadius.circular(7),
+                                                ),
+                                                child: Icon(
+                                                  tokenStatus == 'completed' 
+                                                      ? Icons.check_circle_rounded 
+                                                      : Icons.schedule_rounded,
+                                                  color: Colors.white,
+                                                  size: 14,
+                                                ),
+                                              ),
+                                              title: Row(children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    '$projectName • $folderTimestamp',
+                                                    style: const TextStyle(
+                                                      fontWeight: FontWeight.w600, 
+                                                      fontSize: 13,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                if (files.first['is_legacy'] == true) ...[
+                                                  const SizedBox(width: 8),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFF9C27B0).withValues(alpha: 0.1),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: const Text(
+                                                      'Legacy',
+                                                      style: TextStyle(
+                                                        fontSize: 9,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Color(0xFF9C27B0),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ]),
+                                              subtitle: Text(
+                                                '${files.length} files • ${tokenStatus == 'completed' ? 'Completed' : 'Active'}',
+                                                style: TextStyle(
+                                                  fontSize: 11, 
+                                                  color: Colors.grey.shade500,
+                                                ),
+                                              ),
+                                              children: files.map((file) {
+                                                return _buildModernFileItem(file, context);
+                                              }).toList(),
+                                            ),
                                     ),
-                                  ],
-                                ]),
-                                subtitle: Text(
-                                  '${files.length} files • ${tokenStatus == 'completed' ? 'Completed' : 'Active'}',
-                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
-                                ),
-                                children: files.map((file) {
-                                  return _buildModernFileItem(file, context);
+                                  );
                                 }).toList(),
                               ),
                             );
@@ -1108,7 +1151,6 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
   }
 
   Widget _buildModernArchivedTokenCard(Map<String, dynamic> token, bool isDark) {
-    final status = token['status'] as String;
     final mdeName = (token['assigned_profile'] as Map?)?['name'] ?? 'Unknown';
     final archivedAt = token['archived_at'] as String?;
     final archivedDate = archivedAt != null 
@@ -1272,7 +1314,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
     required bool isDark,
   }) {
     return DropdownButtonFormField<T>(
-      value: value,
+      initialValue: value,
       hint: Text(hint, style: TextStyle(color: Colors.grey.shade500)),
       isExpanded: true,
       decoration: InputDecoration(
@@ -1357,6 +1399,41 @@ class _ModernToggleBtn extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── File Actions Helper ──────────────────────────────────────────────────────────────────
+
+class FileActions {
+  static bool isViewable(String fileName) {
+    final ext = fileName.toLowerCase().split('.').last;
+    return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'md'].contains(ext);
+  }
+  
+  static String fileIcon(String fileName) {
+    final ext = fileName.toLowerCase().split('.').last;
+    switch (ext) {
+      case 'pdf': return '📄';
+      case 'jpg': case 'jpeg': case 'png': case 'gif': return '🖼️';
+      case 'doc': case 'docx': return '📝';
+      case 'xls': case 'xlsx': return '📊';
+      case 'zip': case 'rar': return '🗜️';
+      case 'dwg': case 'dxf': return '📐';
+      case 'step': case 'stp': case 'iges': case 'igs': return '🔧';
+      default: return '📁';
+    }
+  }
+  
+  static Future<void> viewFile(BuildContext context, String url, {String? fileName}) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Opening ${fileName ?? 'file'}...')),
+    );
+  }
+  
+  static Future<void> downloadFile(BuildContext context, String url, String fileName) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Downloading $fileName...')),
     );
   }
 }

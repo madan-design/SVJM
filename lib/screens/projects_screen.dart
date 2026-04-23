@@ -228,7 +228,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => CompanyProjectsScreen(company: company, projects: projects),
+          builder: (_) => CompanyProjectsScreen(companyName: company),
         ),
       ).then((_) => _load()),
       borderRadius: BorderRadius.circular(16),

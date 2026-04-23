@@ -1,12 +1,12 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
-import '../services/gemini_service.dart';
+import 'dart:typed_data';
 import '../services/storage_service.dart';
+import '../services/gemini_service.dart';
 import 'mail_preview_screen.dart';
 import 'preview_screen.dart';
-import 'project_detail_screen.dart';
 import 'form_slides.dart';
+import 'company_projects_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -16,434 +16,461 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  Map<String, List<Map<String, dynamic>>> groupedQuotes = {};
-  bool isLoading = true;
-  int expandedIndex = -1;
+  List<Map<String, dynamic>> _quotes = [];
+  Map<String, List<Map<String, dynamic>>> _groupedQuotes = {};
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    loadQuotes();
+    _loadQuotes();
   }
 
-  Future<void> loadQuotes() async {
-    setState(() => isLoading = true);
-    final all = await StorageService.getAllQuotes();
-    final relevant = all
-        .where((q) => ['draft', 'confirmed', 'completed'].contains(q['status'] ?? 'draft') && q['status'] != 'archived')
-        .toList();
-    relevant.sort((a, b) => a['timestamp'].compareTo(b['timestamp']));
-    final Map<String, List<Map<String, dynamic>>> grouped = {};
-    for (var q in relevant) {
-      grouped.putIfAbsent(q['company'] as String, () => []).add(q);
-    }
+  Future<void> _loadQuotes() async {
     setState(() {
-      groupedQuotes = grouped;
-      isLoading = false;
+      _isLoading = true;
     });
-  }
 
-  Future<void> _confirmQuote(Map<String, dynamic> quote) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Confirm Quote'),
-        content: Text('Confirm "${quote['fileName']}"?\n\nThis will move it to Projects and cannot be deleted.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Confirm')),
-        ],
-      ),
-    );
-    if (ok == true) {
-      await StorageService.confirmQuote(quote['metadataPath']);
-      loadQuotes();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Quote confirmed and moved to Projects')));
-    }
-  }
-
-  Future<void> _archiveQuote(Map<String, dynamic> quote) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Archive Quote'),
-        content: Text('Archive "${quote['fileName']}"?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade700, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Archive'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true) {
-      await StorageService.archiveItem(quote['metadataPath']);
-      loadQuotes();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Quote archived')));
-    }
-  }
-
-  Future<void> _shareQuote(Map<String, dynamic> quote) async {
-    final bytes = await StorageService.readPdfBytes(quote['pdfPath']);
-    await Printing.sharePdf(bytes: Uint8List.fromList(bytes), filename: '${quote['fileName']}.pdf');
-  }
-
-  Future<void> _mailQuote(Map<String, dynamic> quote) async {
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const AlertDialog(
-        content: Row(children: [CircularProgressIndicator(), SizedBox(width: 16), Text('Preparing email...')]),
-      ),
-    );
     try {
-      final emailContent = await GeminiService.generateEmailContent(quote);
-      final bytes = await StorageService.readPdfBytes(quote['pdfPath']);
-      if (!mounted) return;
-      Navigator.pop(context);
-      Navigator.push(context, MaterialPageRoute(
-        builder: (_) => MailPreviewScreen(
-          subject: emailContent['subject']!,
-          body: emailContent['body']!,
-          pdfBytes: Uint8List.fromList(bytes),
-          fileName: quote['fileName'],
-          quoteData: quote,
-        ),
-      ));
+      // Get both draft and approved quotes (confirmed + completed)
+      final draftQuotes = await StorageService.getDraftQuotes();
+      final approvedQuotes = await StorageService.getAllProjects(); // confirmed + completed
+      
+      final allQuotes = [...draftQuotes, ...approvedQuotes];
+      final grouped = <String, List<Map<String, dynamic>>>{};
+      
+      for (final quote in allQuotes) {
+        final company = quote['company'] as String;
+        if (!grouped.containsKey(company)) {
+          grouped[company] = [];
+        }
+        grouped[company]!.add(quote);
+      }
+      
+      // Sort quotes within each company: drafts first, then confirmed, then completed
+      for (final companyQuotes in grouped.values) {
+        companyQuotes.sort((a, b) {
+          final statusA = a['status'] as String? ?? 'draft';
+          final statusB = b['status'] as String? ?? 'draft';
+          
+          // Define sort order: draft = 0, confirmed = 1, completed = 2
+          int getStatusOrder(String status) {
+            switch (status) {
+              case 'draft': return 0;
+              case 'confirmed': return 1;
+              case 'completed': return 2;
+              default: return 3;
+            }
+          }
+          
+          return getStatusOrder(statusA).compareTo(getStatusOrder(statusB));
+        });
+      }
+
+      setState(() {
+        _quotes = allQuotes;
+        _groupedQuotes = grouped;
+        _isLoading = false;
+      });
     } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
       if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to prepare mail: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading quotes: $e')),
+        );
       }
     }
   }
 
-  Future<void> _editQuote(Map<String, dynamic> quote) async {
-    await Navigator.push(context, MaterialPageRoute(
-      builder: (_) => FormSlides(existingData: {
-        'date': quote['date'],
-        'company': quote['company'],
-        'address': quote['address'],
-        'subject': quote['subject'],
-        'components': quote['components'],
-        'fileName': quote['fileName'],
-        'pdfPath': quote['pdfPath'],
-        'metadataPath': quote['metadataPath'],
-      }),
-    ));
-    loadQuotes();
+  Future<void> _shareQuote(Map<String, dynamic> quote) async {
+    try {
+      final pdfBytes = Uint8List.fromList(await StorageService.readPdfBytes(quote['pdfPath']));
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: '${quote['fileName']}.pdf',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sharing quote: $e')),
+        );
+      }
+    }
   }
 
-  Future<void> _openQuotePdf(Map<String, dynamic> quote, {bool isDraft = false}) async {
-    final nav = Navigator.of(context);
-    final pdfBytes = await StorageService.readPdfBytes(quote['pdfPath']);
-    if (!mounted) return;
-    nav.push(MaterialPageRoute(
-      builder: (_) => PreviewScreen(
-        pdfData: Uint8List.fromList(pdfBytes),
-        quoteData: {
-          'date': quote['date'],
-          'company': quote['company'],
-          'address': quote['address'],
-          'subject': quote['subject'],
-          'components': quote['components'],
-        },
-        savedFileName: quote['fileName'],
-        isDraft: isDraft,
+  Future<void> _mailQuote(Map<String, dynamic> quote) async {
+    try {
+      final emailContent = await GeminiService.generateEmailContent(quote);
+      final pdfBytes = Uint8List.fromList(await StorageService.readPdfBytes(quote['pdfPath']));
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MailPreviewScreen(
+              subject: emailContent['subject'] ?? 'Quote from SVJM',
+              body: emailContent['body'] ?? 'Please find the attached quote.',
+              pdfBytes: pdfBytes,
+              fileName: quote['fileName'],
+              quoteData: quote,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error preparing email: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteQuote(Map<String, dynamic> quote) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Quote'),
+        content: Text('Are you sure you want to delete the quote for ${quote['company']}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
       ),
-    )).then((_) => loadQuotes());
+    );
+
+    if (confirm == true) {
+      try {
+        await StorageService.deleteQuote(quote['pdfPath'], quote['metadataPath']);
+        _loadQuotes();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Quote deleted successfully')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting quote: $e')),
+          );
+        }
+      }
+    }
   }
 
-  String _fmt(int ts) {
-    final d = DateTime.fromMillisecondsSinceEpoch(ts);
-    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  Future<void> _confirmQuote(Map<String, dynamic> quote) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Quote'),
+        content: Text('Confirm quote for ${quote['company']}? This will move it to Projects.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              backgroundColor: const Color(0xFFC40000),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await StorageService.confirmQuote(quote['metadataPath']);
+        _loadQuotes();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Quote confirmed and moved to Projects')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error confirming quote: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  void _viewQuote(Map<String, dynamic> quote) async {
+    try {
+      final pdfBytes = Uint8List.fromList(await StorageService.readPdfBytes(quote['pdfPath']));
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PreviewScreen(
+              pdfData: pdfBytes,
+              quoteData: quote,
+              savedFileName: quote['fileName'],
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading quote: $e')),
+        );
+      }
+    }
+  }
+
+  void _editQuote(Map<String, dynamic> quote) async {
+    if (mounted) {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FormSlides(existingQuote: quote),
+        ),
+      );
+      if (result == true) {
+        _loadQuotes(); // Refresh the list if quote was updated
+      }
+    }
+  }
+
+  void _navigateToProjectFolder(Map<String, dynamic> quote) async {
+    final company = quote['company'] as String;
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CompanyProjectsScreen(companyName: company),
+        ),
+      ).then((_) => _loadQuotes()); // Refresh when returning
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final companies = groupedQuotes.keys.toList();
     return Scaffold(
-      appBar: AppBar(title: const Text('Quote History')),
-      body: isLoading
+      appBar: AppBar(
+        title: const Text('Quote History'),
+        backgroundColor: const Color(0xFFC40000),
+        foregroundColor: Colors.white,
+      ),
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : groupedQuotes.isEmpty
-              ? const Center(child: Text('No quotes generated yet', style: TextStyle(fontSize: 16)))
+          : _quotes.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No quotes found',
+                    style: TextStyle(fontSize: 18, color: Colors.grey),
+                  ),
+                )
               : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: companies.length,
-                  itemBuilder: (context, i) {
-                    final company = companies[i];
-                    final quotes = groupedQuotes[company]!;
-                    final isOpen = expandedIndex == i;
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _groupedQuotes.length,
+                  itemBuilder: (context, index) {
+                    final company = _groupedQuotes.keys.elementAt(index);
+                    final quotes = _groupedQuotes[company]!;
+                    
                     return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 6),
-                      clipBehavior: Clip.hardEdge,
-                      child: Column(
-                        children: [
-                          InkWell(
-                            onTap: () => setState(() => expandedIndex = isOpen ? -1 : i),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.folder),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(company, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                                        Text('${quotes.length} quote${quotes.length > 1 ? 's' : ''}',
-                                            style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(isOpen ? Icons.expand_less : Icons.expand_more),
-                                ],
-                              ),
-                            ),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: ExpansionTile(
+                        title: Text(
+                          company,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
-                          AnimatedSize(
-                            duration: const Duration(milliseconds: 280),
-                            curve: Curves.easeInOut,
-                            child: ClipRect(
-                              child: Column(
-                                children: isOpen
-                                    ? quotes.map((quote) {
-                                        final status = quote['status'] ?? 'draft';
-                                        return _SwipeableQuoteRow(
-                                          key: ValueKey(quote['fileName']),
-                                          quote: quote,
-                                          isDraft: status == 'draft',
-                                          isConfirmed: status == 'confirmed',
-                                          isCompleted: status == 'completed',
-                                          formatTimestamp: _fmt,
-                                          onTap: () => _openQuotePdf(quote, isDraft: status == 'draft'),
-                                          onShare: status == 'draft' ? () => _shareQuote(quote) : null,
-                                          onMail: status == 'draft' ? () => _mailQuote(quote) : null,
-                                          onDelete: status == 'draft' ? () => _archiveQuote(quote) : null,
-                                          onConfirm: status == 'draft' ? () => _confirmQuote(quote) : null,
-                                          onEdit: status == 'draft' ? () => _editQuote(quote) : null,
-                                          onOpenProject: (status == 'confirmed' || status == 'completed')
-                                              ? () => Navigator.push(context, MaterialPageRoute(
-                                                    builder: (_) => ProjectDetailScreen(project: quote),
-                                                  )).then((_) => loadQuotes())
-                                              : null,
-                                        );
-                                      }).toList()
-                                    : [const SizedBox.shrink()],
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
+                        subtitle: Text('${quotes.length} quote${quotes.length > 1 ? 's' : ''}'),
+                        children: quotes.map((quote) => _buildQuoteItem(quote)).toList(),
                       ),
                     );
                   },
                 ),
     );
   }
-}
 
-// ── Swipeable quote row ───────────────────────────────────────────────────────
-
-class _SwipeableQuoteRow extends StatefulWidget {
-  final Map<String, dynamic> quote;
-  final bool isDraft, isConfirmed, isCompleted;
-  final String Function(int) formatTimestamp;
-  final VoidCallback onTap;
-  final VoidCallback? onShare, onMail, onDelete, onConfirm, onOpenProject, onEdit;
-
-  const _SwipeableQuoteRow({
-    super.key,
-    required this.quote,
-    required this.isDraft,
-    required this.isConfirmed,
-    required this.isCompleted,
-    required this.formatTimestamp,
-    required this.onTap,
-    this.onShare,
-    this.onMail,
-    this.onDelete,
-    this.onConfirm,
-    this.onOpenProject,
-    this.onEdit,
-  });
-
-  @override
-  State<_SwipeableQuoteRow> createState() => _SwipeableQuoteRowState();
-}
-
-class _SwipeableQuoteRowState extends State<_SwipeableQuoteRow>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-  double _drag = 0;
-  bool _isOpen = false;
-
-  static const double _revealFraction = 0.25;
-  static const double _snapThreshold = 0.15;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
-    _anim = _ctrl.drive(CurveTween(curve: Curves.easeOut));
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _onDragUpdate(DragUpdateDetails d, double max) =>
-      setState(() => _drag = (_drag - d.delta.dx).clamp(0.0, max));
-
-  void _onDragEnd(DragEndDetails d, double max) =>
-      _drag / max >= _snapThreshold ? _snapOpen(max) : _snapClose();
-
-  void _snapOpen(double max) {
-    _anim = Tween<double>(begin: _drag, end: max).chain(CurveTween(curve: Curves.easeOut)).animate(_ctrl);
-    _ctrl.forward(from: 0).then((_) => setState(() { _drag = max; _isOpen = true; }));
-  }
-
-  void _snapClose() {
-    _anim = Tween<double>(begin: _drag, end: 0).chain(CurveTween(curve: Curves.easeOut)).animate(_ctrl);
-    _ctrl.forward(from: 0).then((_) => setState(() { _drag = 0; _isOpen = false; }));
-  }
-
-  Widget _actionPanel(BuildContext context, double w) {
-    final bg = Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2A2A) : const Color(0xFFF0F0F0);
-
-    if (widget.isConfirmed || widget.isCompleted) {
-      final col = widget.isCompleted ? Colors.blue.shade600 : Colors.green.shade600;
-      return Container(
-        width: w, color: bg,
-        child: Center(
-          child: GestureDetector(
-            onTap: () { _snapClose(); widget.onOpenProject?.call(); },
-            child: Container(
-              width: 40, height: 40,
-              decoration: BoxDecoration(color: col, shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: col.withValues(alpha: 0.4), blurRadius: 6, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.folder_open_rounded, color: Colors.white, size: 20),
-            ),
+  Widget _buildQuoteItem(Map<String, dynamic> quote) {
+    final status = quote['status'] as String? ?? 'draft';
+    final isDraft = status == 'draft';
+    final isConfirmed = status == 'confirmed';
+    final isCompleted = status == 'completed';
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          quote['subject'] ?? '',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Date: ${quote['date'] ?? ''}',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isDraft)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Draft',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  if (isConfirmed)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        '✓ Confirmed',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  if (isCompleted)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        '✓ Completed',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildActionButton(
+                    icon: Icons.visibility,
+                    label: 'View',
+                    onPressed: () => _viewQuote(quote),
+                  ),
+                  if (isDraft) ...[
+                    _buildActionButton(
+                      icon: Icons.edit,
+                      label: 'Edit',
+                      color: Colors.blue,
+                      onPressed: () => _editQuote(quote),
+                    ),
+                    _buildActionButton(
+                      icon: Icons.share,
+                      label: 'Share',
+                      onPressed: () => _shareQuote(quote),
+                    ),
+                    _buildActionButton(
+                      icon: Icons.email,
+                      label: 'Mail',
+                      onPressed: () => _mailQuote(quote),
+                    ),
+                    _buildActionButton(
+                      icon: Icons.check_circle,
+                      label: 'Confirm',
+                      color: const Color(0xFFC40000),
+                      onPressed: () => _confirmQuote(quote),
+                    ),
+                    _buildActionButton(
+                      icon: Icons.delete,
+                      label: 'Delete',
+                      color: Colors.red,
+                      onPressed: () => _deleteQuote(quote),
+                    ),
+                  ] else ...[
+                    // For approved quotes, show folder button
+                    _buildActionButton(
+                      icon: Icons.folder,
+                      label: 'Folder',
+                      color: isCompleted ? Colors.green : Colors.blue,
+                      onPressed: () => _navigateToProjectFolder(quote),
+                    ),
+                  ],
+                ],
+              ),
+            ],
           ),
         ),
-      );
-    }
-
-    return Container(
-      width: w, color: bg,
-      child: Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          GestureDetector(
-            onTap: () { _snapClose(); widget.onConfirm?.call(); },
-            child: Container(
-              width: 30, height: 30,
-              decoration: BoxDecoration(color: Colors.green.shade600, shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: Colors.green.withValues(alpha: 0.4), blurRadius: 6, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.check_rounded, color: Colors.white, size: 16),
-            ),
-          ),
-          const SizedBox(height: 6),
-          GestureDetector(
-            onTap: () { _snapClose(); widget.onDelete?.call(); },
-            child: Container(
-              width: 30, height: 30,
-              decoration: BoxDecoration(color: Colors.grey.shade600, shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: Colors.grey.withValues(alpha: 0.4), blurRadius: 6, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.archive_rounded, color: Colors.white, size: 15),
-            ),
-          ),
-        ]),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final quote = widget.quote;
-
-    Widget badge() {
-      if (widget.isCompleted) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(10)),
-          child: Text('✓ Completed', style: TextStyle(color: Colors.blue.shade800, fontSize: 11, fontWeight: FontWeight.bold)),
-        );
-      }
-      if (widget.isConfirmed) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(10)),
-          child: const Text('✓ Approved', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
-        );
-      }
-      return Row(mainAxisSize: MainAxisSize.min, children: [
-        IconButton(icon: const Icon(Icons.edit, size: 20, color: Colors.blue), tooltip: 'Edit Quote', onPressed: widget.onEdit),
-        IconButton(icon: const Icon(Icons.mail_outline, size: 20), tooltip: 'Send via Email', onPressed: widget.onMail),
-        IconButton(icon: const Icon(Icons.share, size: 20), tooltip: 'Share PDF', onPressed: widget.onShare),
-      ]);
-    }
-
-    return LayoutBuilder(builder: (context, constraints) {
-      final fullWidth = constraints.maxWidth;
-      final maxSwipe = fullWidth * _revealFraction;
-
-      return GestureDetector(
-        onHorizontalDragUpdate: (d) => _onDragUpdate(d, maxSwipe),
-        onHorizontalDragEnd: (d) => _onDragEnd(d, maxSwipe),
-        child: SizedBox(
-          width: fullWidth,
-          child: ClipRect(
-            child: AnimatedBuilder(
-              animation: _ctrl,
-              builder: (ctx, child) {
-                final offset = _ctrl.isAnimating ? _anim.value : _drag;
-                return Stack(
-                  children: [
-                    // Action panel — starts just outside the right edge
-                    Positioned(
-                      left: fullWidth - offset,
-                      top: 0,
-                      bottom: 0,
-                      width: maxSwipe,
-                      child: _actionPanel(context, maxSwipe),
-                    ),
-                    // Foreground — always fullWidth, slides left
-                    Transform.translate(
-                      offset: Offset(-offset, 0),
-                      child: SizedBox(
-                        width: fullWidth,
-                        child: Container(
-                          color: Theme.of(context).cardColor,
-                          child: Column(children: [
-                            const Divider(height: 1),
-                            ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                              title: Text(quote['fileName'], style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                              subtitle: Text(
-                                'Date: ${quote['date']}  •  Saved: ${widget.formatTimestamp(quote['timestamp'])}',
-                                style: const TextStyle(fontSize: 11),
-                              ),
-                              trailing: badge(),
-                              onTap: () => _isOpen ? _snapClose() : widget.onTap(),
-                            ),
-                          ]),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+    Color? color,
+  }) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color ?? Colors.grey[600], size: 20),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color ?? Colors.grey[600],
+                fontSize: 12,
+              ),
             ),
-          ),
+          ],
         ),
-      );
-    });
+      ),
+    );
   }
 }

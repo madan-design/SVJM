@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import 'splash_screen.dart';
 import 'login_screen.dart';
@@ -17,17 +18,34 @@ class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
   bool _isLoggedIn = false;
   String? _userRole;
+  late final Stream<AuthState> _authStream;
 
   @override
   void initState() {
     super.initState();
+    _authStream = AuthService.authStateChanges;
     _checkAuthState();
+    
+    // Listen for auth state changes for immediate logout response
+    _authStream.listen((AuthState data) {
+      if (mounted) {
+        final isLoggedIn = data.session != null;
+        if (!isLoggedIn && _isLoggedIn) {
+          // User just logged out, immediately update UI
+          setState(() {
+            _isLoggedIn = false;
+            _userRole = null;
+            _isLoading = false;
+          });
+        }
+      }
+    });
   }
 
   Future<void> _checkAuthState() async {
     try {
-      // Wait a bit for Supabase to restore session from storage
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Reduced delay for faster initial load
+      await Future.delayed(const Duration(milliseconds: 200));
       
       final isLoggedIn = AuthService.isLoggedIn;
       String? role;

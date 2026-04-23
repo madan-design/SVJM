@@ -33,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    final role = await AuthService.getRole();
+    // Login successful, navigate to AuthWrapper
     if (!mounted) return;
     setState(() => _loading = false);
 

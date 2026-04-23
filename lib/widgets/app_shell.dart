@@ -570,14 +570,16 @@ class FileActions {
     if (['ppt', 'pptx'].contains(ext)) return '📑';
     if (['dwg', 'dxf'].contains(ext)) return '📐';
     if (['step', 'stp', 'x_t', 'xt', 'prt', 'igs', 'iges', 'stl', 'obj',
-         'catpart', 'catproduct', 'ipt', 'iam', 'sldprt', 'sldasm', 'sat'].contains(ext)) return '🧊';
+         'catpart', 'catproduct', 'ipt', 'iam', 'sldprt', 'sldasm', 'sat'].contains(ext)) {
+      return '🧊';
+    }
     if (['zip', 'rar', '7z'].contains(ext)) return '🗜️';
     return '📁';
   }
 
   static String formatSize(int? bytes) {
     if (bytes == null) return '';
-    if (bytes < 1024) return '${bytes} B';
+    if (bytes < 1024) return '$bytes B';
     if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
@@ -602,11 +604,40 @@ Future<void> confirmLogout(BuildContext context) async {
       ],
     ),
   );
-  if (ok == true) {
+  if (ok == true && context.mounted) {
+    await _performLogout(context);
+  }
+}
+
+// Immediate logout without confirmation
+Future<void> immediateLogout(BuildContext context) async {
+  if (context.mounted) {
+    await _performLogout(context);
+  }
+}
+
+// Actual logout implementation
+Future<void> _performLogout(BuildContext context) async {
+  try {
+    // Perform logout first
     await AuthService.logout();
+    
+    // Navigate immediately after logout without showing loading
     if (context.mounted) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const AuthWrapper()), (_) => false);
+        MaterialPageRoute(builder: (_) => const AuthWrapper()), 
+        (route) => false,
+      );
+    }
+  } catch (e) {
+    // Handle logout error
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Logout failed: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }

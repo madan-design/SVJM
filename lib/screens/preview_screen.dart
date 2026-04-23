@@ -137,7 +137,7 @@ class _PreviewScreenState extends State<PreviewScreen> {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => FormSlides(existingData: widget.quoteData),
+                    builder: (_) => FormSlides(existingQuote: widget.quoteData),
                   ),
                 );
               },

@@ -16,7 +16,18 @@ class AuthService {
   }
 
   static Future<void> logout() async {
-    await _client.auth.signOut();
+    try {
+      // Sign out from Supabase
+      await _client.auth.signOut();
+      
+      // Clear any cached data if needed
+      // Note: Supabase automatically clears the session
+    } catch (e) {
+      // Even if logout fails, we should still clear local session
+      print('Logout error: $e');
+      // Force clear session by reinitializing client if needed
+      rethrow;
+    }
   }
 
   static User? get currentUser => _client.auth.currentUser;
