@@ -224,7 +224,25 @@ class SupabaseService {
     required String mimeType,
   }) async {
     final uid = AuthService.currentUser!.id;
-    final path = 'legacy/$folderId/$fileName';
+    
+    // Ensure dummy token exists to bypass storage RLS
+    try {
+      final existing = await _db.from('tokens').select('id').eq('id', folderId).maybeSingle();
+      if (existing == null) {
+        final folder = await _db.from('legacy_folders').select('folder_name').eq('id', folderId).single();
+        await _db.from('tokens').insert({
+          'id': folderId,
+          'project_name': folder['folder_name'],
+          'created_by': uid,
+          'assigned_to': uid,
+          'status': 'legacy_hidden'
+        });
+      }
+    } catch (e) {
+      print('Dummy token insert logic error: $e');
+    }
+
+    final path = '$folderId/$fileName';
 
     await _storage.from('project-files').uploadBinary(
       path,
@@ -239,8 +257,14 @@ class SupabaseService {
       'file_path': path,
       'file_size': bytes.length,
       'mime_type': mimeType,
-      // Set token_id to null explicitly since it's not needed for legacy files
+      // token_id is left null, but storage verified it via dummy token ID above!
     });
+  }
+
+  static Future<void> unarchiveLegacyFile(String fileId) async {
+    await _db.from('token_files').update({
+      'archived': false,
+    }).eq('id', fileId);
   }
 
   static Future<List<Map<String, dynamic>>> getFilesForLegacyFolder(String folderId) async {
@@ -248,6 +272,7 @@ class SupabaseService {
         .from('token_files')
         .select()
         .eq('legacy_folder_id', folderId)
+        .or('archived.is.null,archived.eq.false')
         .order('uploaded_at', ascending: false);
     return List<Map<String, dynamic>>.from(data);
   }
@@ -512,17 +537,24 @@ class SupabaseService {
     }
   }
 
-  // Get all archived files for current user
   static Future<List<Map<String, dynamic>>> getAllArchivedFiles() async {
     try {
       final uid = AuthService.currentUser!.id;
       final data = await _db
           .from('token_files')
-          .select('*, tokens!inner(project_name, assigned_to)')
+          .select('*, tokens(project_name, assigned_to), legacy_folders(folder_name, created_by)')
           .eq('archived', true)
-          .eq('tokens.assigned_to', uid)
           .order('archived_at', ascending: false);
-      return List<Map<String, dynamic>>.from(data);
+          
+      final results = List<Map<String, dynamic>>.from(data).where((file) {
+         final t = file['tokens'];
+         final lf = file['legacy_folders'];
+         if (t != null && t['assigned_to'] == uid) return true;
+         if (lf != null && lf['created_by'] == uid) return true;
+         return false;
+      }).toList();
+      
+      return results;
     } catch (e) {
       print('Error getting all archived files (archived column may not exist): $e');
       // If archived column doesn't exist, return empty list

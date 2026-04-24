@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:printing/printing.dart';
 import 'dart:typed_data';
 import '../services/storage_service.dart';
@@ -260,8 +261,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktopWeb = kIsWeb && MediaQuery.of(context).size.width > 800;
+
     return Scaffold(
-      appBar: AppBar(
+      appBar: isDesktopWeb ? null : AppBar(
         title: const Text('Quote History'),
         backgroundColor: const Color(0xFFC40000),
         foregroundColor: Colors.white,

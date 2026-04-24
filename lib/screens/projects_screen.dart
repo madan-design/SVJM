@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../services/storage_service.dart';
 import 'company_projects_screen.dart';
 
@@ -50,12 +51,13 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isWide = MediaQuery.of(context).size.width > 800;
+    final isWide = MediaQuery.of(context).size.width > 800; // implies desktop web layout generally
+    final isDesktopWeb = kIsWeb && isWide;
     final companies = _filteredCompanies;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8FAFC),
-      appBar: AppBar(
+      appBar: isDesktopWeb ? null : AppBar(
         title: const Text('Projects', style: TextStyle(fontWeight: FontWeight.w600)),
         centerTitle: true,
         elevation: 0,
@@ -69,13 +71,24 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           ),
         ),
       ),
-      body: isLoading
-          ? _buildLoadingState(isDark)
-          : groupedProjects.isEmpty
-              ? _buildEmptyState(isDark)
-              : companies.isEmpty
-                  ? _buildNoResultsState(isDark)
-                  : _buildProjectsList(companies, isDark, isWide),
+      body: Column(
+        children: [
+          if (isDesktopWeb)
+            Container(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+              child: _buildSearchBar(isDark),
+            ),
+          Expanded(
+            child: isLoading
+                ? _buildLoadingState(isDark)
+                : groupedProjects.isEmpty
+                    ? _buildEmptyState(isDark)
+                    : companies.isEmpty
+                        ? _buildNoResultsState(isDark)
+                        : _buildProjectsList(companies, isDark, isWide),
+          ),
+        ],
+      ),
     );
   }
 

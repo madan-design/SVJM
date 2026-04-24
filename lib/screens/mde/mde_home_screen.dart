@@ -327,7 +327,7 @@ class _MdeHomeScreenState extends State<MdeHomeScreen> {
     _NavItemData('Dashboard', Icons.dashboard_rounded),
     _NavItemData('Assigned', Icons.pending_actions_rounded),
     _NavItemData('Completed', Icons.check_circle_rounded),
-    _NavItemData('Legacy Files', Icons.folder_special_rounded),
+    _NavItemData('Old Files', Icons.folder_special_rounded),
     _NavItemData('Archive', Icons.archive_rounded),
   ];
 
@@ -349,8 +349,8 @@ class _MdeHomeScreenState extends State<MdeHomeScreen> {
         archivedFiles: _archivedFiles,
         archivedLegacyFolders: _archivedLegacyFolders,
         onLogout: () => confirmLogout(context),
-        onProjectTap: (token) => Navigator.push(
-          context,
+        onProjectTap: (innerContext, token) => Navigator.push(
+          innerContext,
           MaterialPageRoute(builder: (_) => MdeProjectScreen(token: token)),
         ).then((_) => _load()),
         onRestoreFile: _restoreFile,
@@ -413,7 +413,7 @@ class _WebMdeShell extends StatefulWidget {
   final List<Map<String, dynamic>> archivedFiles;
   final List<Map<String, dynamic>> archivedLegacyFolders;
   final VoidCallback onLogout;
-  final void Function(Map<String, dynamic>) onProjectTap;
+  final void Function(BuildContext context, Map<String, dynamic> token) onProjectTap;
   final void Function(Map<String, dynamic>) onRestoreFile;
   final void Function(Map<String, dynamic>) onDeleteFile;
   final void Function(Map<String, dynamic>) onRestoreLegacyFolder;
@@ -552,49 +552,80 @@ class _WebMdeShellState extends State<_WebMdeShell> {
             ]),
           ),
         ),
-        // Main content
+        // Main content area
         Expanded(
-          child: Column(children: [
-            // Top bar
-            Container(
-              height: 60,
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              decoration: BoxDecoration(
-                color: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                border: Border(bottom: BorderSide(
-                  color: widget.isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06))),
-              ),
-              child: Row(children: [
-                Text(widget.navItems[widget.selectedIndex].label, style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w700,
-                  color: widget.isDark ? Colors.white : const Color(0xFF1A1A2E),
-                )),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: widget.isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF4F6FA),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: const Color(0xFF1565C0),
-                      child: Text(widget.mdeName.isNotEmpty ? widget.mdeName[0].toUpperCase() : 'M',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 0),
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 1200), // Max-width container
+                decoration: BoxDecoration(
+                  color: widget.isDark ? const Color(0xFF121212) : Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      spreadRadius: 2,
                     ),
-                    const SizedBox(width: 8),
-                    Text(widget.mdeName, style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w500,
-                      color: widget.isDark ? Colors.white70 : const Color(0xFF1A1A2E))),
-                    const SizedBox(width: 4),
-                    Text('· MDE', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                  ]),
+                  ],
                 ),
-              ]),
+                child: Column(children: [
+                  // Top bar
+                  Container(
+                    height: 60,
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    decoration: BoxDecoration(
+                      color: widget.isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                      border: Border(bottom: BorderSide(
+                        color: widget.isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06))),
+                    ),
+                    child: Row(children: [
+                      Text(widget.navItems[widget.selectedIndex].label, style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700,
+                        color: widget.isDark ? Colors.white : const Color(0xFF1A1A2E),
+                      )),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: widget.isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF4F6FA),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundColor: const Color(0xFF1565C0),
+                            child: Text(widget.mdeName.isNotEmpty ? widget.mdeName[0].toUpperCase() : 'M',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(widget.mdeName, style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w500,
+                            color: widget.isDark ? Colors.white70 : const Color(0xFF1A1A2E))),
+                          const SizedBox(width: 4),
+                          Text('· MDE', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                  Expanded(
+                    child: Navigator(
+                      key: ValueKey('NavRoot_${widget.selectedIndex}'), // Ensure fresh navigator per main tab
+                      pages: [
+                        MaterialPage(
+                          key: ValueKey('base_${widget.selectedIndex}'),
+                          child: _pageForIndex(widget.selectedIndex),
+                        ),
+                      ],
+                      onPopPage: (route, result) {
+                        return route.didPop(result);
+                      },
+                    ),
+                  ),
+                ]),
+              ),
             ),
-            Expanded(child: _pageForIndex(widget.selectedIndex)),
-          ]),
+          ),
         ),
       ]),
     );
@@ -697,7 +728,7 @@ class _MobileMdeHome extends StatelessWidget {
           const SizedBox(height: 12),
           // Legacy Files accordion
           _FolderAccordion(
-            title: 'Legacy Files', icon: Icons.folder_special_rounded,
+            title: 'Old Files', icon: Icons.folder_special_rounded,
             color: const Color(0xFF9C27B0), count: 0, // Will be updated later
             isOpen: expandedIndex == 2, onToggle: () => onToggle(2),
             isDark: isDark, tokens: [], onTap: (_) {},
@@ -799,7 +830,7 @@ class _ProjectListPage extends StatelessWidget {
   final List<Map<String, dynamic>> tokens;
   final Color color;
   final bool isDark;
-  final void Function(Map<String, dynamic>) onTap;
+  final void Function(BuildContext context, Map<String, dynamic>) onTap;
 
   const _ProjectListPage({required this.title, required this.tokens,
       required this.color, required this.isDark, required this.onTap});
@@ -826,7 +857,14 @@ class _ProjectListPage extends StatelessWidget {
             spacing: 16, runSpacing: 16,
             children: tokens.map((t) => SizedBox(
               width: 300,
-              child: _ProjectTile(token: t, color: color, isDark: isDark, onTap: () => onTap(t)),
+              child: Builder(
+                builder: (innerContext) => _ProjectTile(
+                  token: t, 
+                  color: color, 
+                  isDark: isDark, 
+                  onTap: () => onTap(innerContext, t)
+                )
+              ),
             )).toList(),
           ),
       ]),
@@ -1015,7 +1053,7 @@ class _FolderAccordion extends StatelessWidget {
                                     ),
                                     title: Text(f['file_name'] as String,
                                         style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-                                    subtitle: Text('From: ${f['tokens']?['project_name'] ?? 'Unknown Project'}', 
+                                    subtitle: Text('From: ${f['tokens']?['project_name'] ?? f['legacy_folders']?['folder_name'] ?? 'Unknown Project'}', 
                                         style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                                     trailing: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -1215,7 +1253,7 @@ class _MdeArchivePage extends StatelessWidget {
                               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
                         ]),
                         const SizedBox(height: 8),
-                        Text('From: ${f['tokens']['project_name'] as String}',
+                        Text('From: ${f['tokens']?['project_name'] ?? f['legacy_folders']?['folder_name'] ?? 'Unknown Project'}',
                             style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
                         if (f['archived_at'] != null) ...[
                           const SizedBox(height: 4),

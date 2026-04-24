@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/storage_service.dart';
 import '../../services/supabase_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AssignProjectScreen extends StatefulWidget {
   const AssignProjectScreen({super.key});
@@ -27,6 +28,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
 
   // ── View Files tab state ───────────────────────────────────
   final Map<String, List<Map<String, dynamic>>> _filesCache = {};
+  String _viewFilesSearchQuery = '';
 
   @override
   void initState() {
@@ -199,15 +201,18 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Assign Designer', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: (kIsWeb && MediaQuery.of(context).size.width >= 1024)
+            ? null
+            : const Text('Assign Designer', style: TextStyle(fontWeight: FontWeight.w600)),
         centerTitle: true,
         elevation: 0,
         backgroundColor: isDark ? const Color(0xFF111111) : Colors.white,
+        toolbarHeight: (kIsWeb && MediaQuery.of(context).size.width >= 1024) ? 0 : null,
         surfaceTintColor: Colors.transparent,
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
+          preferredSize: const Size.fromHeight(96),
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(12),
@@ -482,7 +487,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: MediaQuery.of(context).size.width > 1200 ? 2 : 1,
-            childAspectRatio: 3.5,
+            mainAxisExtent: 110,
             crossAxisSpacing: 16,
             mainAxisSpacing: 12,
           ),
@@ -518,7 +523,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
           physics: const NeverScrollableScrollPhysics(),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: MediaQuery.of(context).size.width > 1200 ? 2 : 1,
-            childAspectRatio: 3.5,
+            mainAxisExtent: 110,
             crossAxisSpacing: 16,
             mainAxisSpacing: 12,
           ),
@@ -659,8 +664,33 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
   Widget _buildModernViewFilesTab() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
-    return FutureBuilder(
-      future: () async {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: TextField(
+            onChanged: (val) => setState(() => _viewFilesSearchQuery = val),
+            decoration: InputDecoration(
+              hintText: 'Search files or projects...',
+              prefixIcon: const Icon(Icons.search_rounded),
+              filled: true,
+              fillColor: isDark ? const Color(0xFF111111) : Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: isDark ? const Color(0xFF1F1F1F) : const Color(0xFFE2E8F0),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder(
+            future: () async {
         // Run test queries first
         await SupabaseService.testFileQueries();
         return SupabaseService.getFilesGroupedByDesignerYearMonthAndToken();
@@ -684,9 +714,138 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
             ),
           );
         }
+
+        Map<String, Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>> groupedFiles;
+        if (snapshot.data != null) {
+          groupedFiles = Map<String, Map<String, Map<String, Map<String, List<Map<String, dynamic>>>>>>.from(snapshot.data!);
+        } else {
+          groupedFiles = {};
+        }
         
-        final groupedFiles = snapshot.data ?? {};
-        
+        if (_viewFilesSearchQuery.isNotEmpty) {
+          final query = _viewFilesSearchQuery.toLowerCase();
+          final List<Map<String, dynamic>> folderResults = [];
+          
+          for (final designerName in groupedFiles.keys) {
+            final yearMap = groupedFiles[designerName]!;
+            for (final year in yearMap.keys) {
+              final monthMap = yearMap[year]!;
+              for (final month in monthMap.keys) {
+                final tokenMap = monthMap[month]!;
+                for (final tokenId in tokenMap.keys) {
+                  final files = tokenMap[tokenId]!;
+                  
+                  bool folderMatches = false;
+                  for (final file in files) {
+                    final fileName = (file['file_name'] as String?)?.toLowerCase() ?? '';
+                    final projectName = (file['project_name'] as String?)?.toLowerCase() ?? '';
+                    if (fileName.contains(query) || projectName.contains(query) || designerName.toLowerCase().contains(query)) {
+                      folderMatches = true;
+                      break;
+                    }
+                  }
+                  
+                  if (folderMatches && files.isNotEmpty) {
+                    final firstFile = files.first;
+                    final projectName = firstFile['project_name'] as String? ?? 'Folder';
+                    
+                    folderResults.add({
+                      'project_name': projectName,
+                      'folder_path': '$designerName / $year / $month',
+                      'files': files,
+                    });
+                  }
+                }
+              }
+            }
+          }
+
+          if (folderResults.isEmpty) {
+            return Center(
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Container(
+                  width: 80, height: 80,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(Icons.folder_open_rounded, size: 40, color: Colors.grey.shade400),
+                ),
+                const SizedBox(height: 16),
+                Text('No match found', 
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 16, fontWeight: FontWeight.w500)),
+              ]),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(24),
+            itemCount: folderResults.length,
+            itemBuilder: (context, index) {
+              final folderData = folderResults[index];
+              final projectName = folderData['project_name'] as String;
+              final path = folderData['folder_path'] as String;
+              final files = folderData['files'] as List<Map<String, dynamic>>;
+              
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFE2E8F0)),
+                ),
+                child: ExpansionTile(
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  leading: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFC40000).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.folder_copy_rounded, color: Color(0xFFC40000), size: 16),
+                  ),
+                  title: Text(projectName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  subtitle: Text('Path: $path', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                  children: files.map((file) {
+                    final fileName = file['file_name'] as String;
+                    final fileSize = file['file_size'] as int? ?? 0;
+                    final filePath = file['file_path'] as String;
+                    final canView = FileActions.isViewable(fileName);
+                    
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border(top: BorderSide(color: isDark ? const Color(0xFF2E2E2E) : Colors.grey.shade200)),
+                      ),
+                      child: Row(children: [
+                        Text(FileActions.fileIcon(fileName), style: const TextStyle(fontSize: 20)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(fileName, style: TextStyle(fontSize: 13, color: isDark ? Colors.grey.shade300 : Colors.black87)),
+                            Text(FileActions.formatSize(fileSize), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                          ]),
+                        ),
+                        if (canView)
+                          IconButton(
+                            icon: const Icon(Icons.visibility_rounded, size: 18, color: Color(0xFF1565C0)),
+                            onPressed: () => _viewFile(filePath, fileName),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.download_rounded, size: 18, color: Color(0xFF2E7D32)),
+                          onPressed: () => _downloadFile(filePath, fileName),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ]),
+                    );
+                  }).toList(),
+                ),
+              );
+            },
+          );
+        }
+
         if (groupedFiles.isEmpty) {
           return Center(
             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -699,10 +858,10 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
                 child: Icon(Icons.folder_open_rounded, size: 40, color: Colors.grey.shade400),
               ),
               const SizedBox(height: 16),
-              Text('No files uploaded yet', 
+              Text('No files found', 
                   style: TextStyle(color: Colors.grey.shade500, fontSize: 16, fontWeight: FontWeight.w500)),
               const SizedBox(height: 4),
-              Text('Files will appear here once designers upload them', 
+              Text('Try adjusting your search query', 
                   style: TextStyle(color: Colors.grey.shade400, fontSize: 13)),
             ]),
           );
@@ -781,7 +940,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
                         const SizedBox(width: 8),
                         _buildProjectBadge(completedCount, 'completed', const Color(0xFF10B981)),
                         const SizedBox(width: 8),
-                        _buildProjectBadge(legacyCount, 'legacy', const Color(0xFF9C27B0)),
+                        _buildProjectBadge(legacyCount, 'old', const Color(0xFF9C27B0)),
                       ]),
                     ),
                     children: yearGroups.keys.map((year) {
@@ -908,7 +1067,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
                                                       borderRadius: BorderRadius.circular(4),
                                                     ),
                                                     child: const Text(
-                                                      'Legacy',
+                                                      'Old',
                                                       style: TextStyle(
                                                         fontSize: 9,
                                                         fontWeight: FontWeight.w600,
@@ -978,7 +1137,7 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
                                                       borderRadius: BorderRadius.circular(4),
                                                     ),
                                                     child: const Text(
-                                                      'Legacy',
+                                                      'Old',
                                                       style: TextStyle(
                                                         fontSize: 9,
                                                         fontWeight: FontWeight.w600,
@@ -1015,8 +1174,11 @@ class _AssignProjectScreenState extends State<AssignProjectScreen>
           },
         );
       },
-    );
-  }
+    ),
+  ),
+],
+);
+}
   
   Widget _buildProjectBadge(int count, String label, Color color) {
     return Container(
@@ -1435,5 +1597,12 @@ class FileActions {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Downloading $fileName...')),
     );
+  }
+
+  static String formatSize(int? bytes) {
+    if (bytes == null || bytes == 0) return 'Unknown size';
+    if (bytes < 1024) return '${bytes}B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)}KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)}MB';
   }
 }

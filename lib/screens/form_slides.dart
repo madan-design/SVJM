@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../services/storage_service.dart';
@@ -285,8 +286,10 @@ class _FormSlidesState extends State<FormSlides> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktopWeb = kIsWeb && MediaQuery.of(context).size.width > 800;
+
     return Scaffold(
-      appBar: AppBar(
+      appBar: isDesktopWeb ? null : AppBar(
         title: Text(widget.existingQuote != null ? 'Edit Quote' : 'Create Quote'),
         backgroundColor: const Color(0xFFC40000),
         foregroundColor: Colors.white,

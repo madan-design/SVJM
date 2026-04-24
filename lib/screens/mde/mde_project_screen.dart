@@ -19,6 +19,7 @@ class MdeProjectScreen extends StatefulWidget {
 
 class _MdeProjectScreenState extends State<MdeProjectScreen> {
   List<Map<String, dynamic>> _files = [];
+  String _searchQuery = '';
   bool _loading = true;
   bool _uploading = false;
   bool _isDragOver = false;
@@ -291,6 +292,10 @@ class _MdeProjectScreenState extends State<MdeProjectScreen> {
   }
 
   Widget _buildFileList(bool isDark, bool isWide) {
+    final filteredFiles = _searchQuery.isEmpty
+        ? _files
+        : _files.where((f) => (f['file_name'] as String).toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         const Icon(Icons.folder_open_rounded, size: 20),
@@ -298,8 +303,30 @@ class _MdeProjectScreenState extends State<MdeProjectScreen> {
         Text('Files (${_files.length})',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
       ]),
+      const SizedBox(height: 12),
+      if (_files.isNotEmpty)
+        TextField(
+          onChanged: (val) => setState(() => _searchQuery = val),
+          decoration: InputDecoration(
+            hintText: 'Search files...',
+            prefixIcon: const Icon(Icons.search_rounded),
+            filled: true,
+            fillColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: isDark ? const Color(0xFF333333) : Colors.grey.shade300,
+              ),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          ),
+        ),
       if (!isWide && _files.isNotEmpty) ...[
-        const SizedBox(height: 4),
+        const SizedBox(height: 12),
         Text('← Swipe left to reveal actions',
             style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
       ],
@@ -318,8 +345,22 @@ class _MdeProjectScreenState extends State<MdeProjectScreen> {
             Text('No files uploaded yet', style: TextStyle(color: Colors.grey.shade500)),
           ]),
         )
+      else if (filteredFiles.isEmpty)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(40),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(children: [
+            Icon(Icons.search_off_rounded, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text('No files match your search', style: TextStyle(color: Colors.grey.shade500)),
+          ]),
+        )
       else
-        ..._files.map((f) {
+        ...filteredFiles.map((f) {
           final fileName = f['file_name'] as String;
           final filePath = f['file_path'] as String;
           final canView = FileActions.isViewable(fileName);

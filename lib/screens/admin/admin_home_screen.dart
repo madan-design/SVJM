@@ -191,49 +191,80 @@ class _WebAdminShell extends StatelessWidget {
             ]),
           ),
         ),
-        // Main content
+        // Main content area
         Expanded(
-          child: Column(children: [
-            // Top bar
-            Container(
-              height: 60,
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                border: Border(bottom: BorderSide(
-                  color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06))),
-              ),
-              child: Row(children: [
-                Text(navItems[selectedIndex].label, style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w700,
-                  color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                )),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF4F6FA),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: const Color(0xFFC40000),
-                      child: Text(adminName.isNotEmpty ? adminName[0].toUpperCase() : 'A',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 0),
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 1200), // Max-width container
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF121212) : Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      spreadRadius: 2,
                     ),
-                    const SizedBox(width: 8),
-                    Text(adminName, style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.white70 : const Color(0xFF1A1A2E))),
-                    const SizedBox(width: 4),
-                    Text('· Admin', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                  ]),
+                  ],
                 ),
-              ]),
+                child: Column(children: [
+                  // Top bar
+                  Container(
+                    height: 60,
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                      border: Border(bottom: BorderSide(
+                        color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06))),
+                    ),
+                    child: Row(children: [
+                      Text(navItems[selectedIndex].label, style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                      )),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF4F6FA),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundColor: const Color(0xFFC40000),
+                            child: Text(adminName.isNotEmpty ? adminName[0].toUpperCase() : 'A',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(adminName, style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w500,
+                            color: isDark ? Colors.white70 : const Color(0xFF1A1A2E))),
+                          const SizedBox(width: 4),
+                          Text('· Admin', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                  Expanded(
+                    child: Navigator(
+                      key: ValueKey('NavRoot_$selectedIndex'), // Ensure fresh navigator per main tab
+                      pages: [
+                        MaterialPage(
+                          key: ValueKey('base_$selectedIndex'),
+                          child: pages[selectedIndex],
+                        ),
+                      ],
+                      onPopPage: (route, result) {
+                        return route.didPop(result);
+                      },
+                    ),
+                  ),
+                ]),
+              ),
             ),
-            Expanded(child: pages[selectedIndex]),
-          ]),
+          ),
         ),
       ]),
     );

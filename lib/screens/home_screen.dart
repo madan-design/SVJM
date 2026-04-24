@@ -310,9 +310,10 @@ class _WebHomeShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sidebarBg = isDark ? const Color(0xFF0F0F0F) : const Color(0xFF1A1A2E);
+    final shellBg = isDark ? const Color(0xFF000000) : const Color(0xFFE5E7EB);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF4F6FA),
+      backgroundColor: shellBg,
       body: Row(children: [
         // Sidebar
         SizedBox(
@@ -405,62 +406,103 @@ class _WebHomeShell extends StatelessWidget {
             ]),
           ),
         ),
-        // Main content
+        // Main content area
         Expanded(
-          child: Column(children: [
-            // Top bar
-            Container(
-              height: 60,
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                border: Border(bottom: BorderSide(
-                  color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06))),
-              ),
-              child: Row(children: [
-                if (currentSubPage != null && onNavigateBack != null) ...[
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: onNavigateBack,
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  currentSubPage != null 
-                      ? _getSubPageTitle(currentSubPage!)
-                      : navItems[selectedIndex].label, 
-                  style: TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                  )
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF4F6FA),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    CircleAvatar(
-                      radius: 12,
-                      backgroundColor: const Color(0xFFC40000),
-                      child: Text(userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 0),
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 1200), // Max-width container
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF121212) : Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 10,
+                      spreadRadius: 2,
                     ),
-                    const SizedBox(width: 8),
-                    Text(userName, style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.white70 : const Color(0xFF1A1A2E))),
-                    const SizedBox(width: 4),
-                    Text('· ${userRole == 'admin' ? 'Admin' : 'User'}', 
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-                  ]),
+                  ],
                 ),
-              ]),
+                child: Column(children: [
+                  // Top bar
+                  Container(
+                    height: 60,
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                      border: Border(bottom: BorderSide(
+                        color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06))),
+                    ),
+                    child: Row(children: [
+                      if (currentSubPage != null && onNavigateBack != null) ...[
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: onNavigateBack,
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(
+                        currentSubPage != null 
+                            ? _getSubPageTitle(currentSubPage!)
+                            : navItems[selectedIndex].label, 
+                        style: TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                        )
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF4F6FA),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundColor: const Color(0xFFC40000),
+                            child: Text(userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(userName, style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w500,
+                            color: isDark ? Colors.white70 : const Color(0xFF1A1A2E))),
+                          const SizedBox(width: 4),
+                          Text('· ${userRole == 'admin' ? 'Admin' : 'User'}', 
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                  Expanded(
+                    child: Navigator(
+                      key: ValueKey('NavRoot_$selectedIndex'), // Ensure fresh navigator per main tab
+                      pages: [
+                        MaterialPage(
+                          key: ValueKey('base_$selectedIndex'),
+                          child: pages[selectedIndex],
+                        ),
+                        if (currentSubPage != null)
+                          MaterialPage(
+                            key: const ValueKey('subPage'),
+                            child: currentSubPage!,
+                          ),
+                      ],
+                      onPopPage: (route, result) {
+                        if (!route.didPop(result)) return false;
+                        if (onNavigateBack != null && currentSubPage != null) {
+                          onNavigateBack!();
+                          return true;
+                        }
+                        return true;
+                      },
+                    ),
+                  ),
+                ]),
+              ),
             ),
-            Expanded(child: currentSubPage ?? pages[selectedIndex]),
-          ]),
+          ),
         ),
       ]),
     );
